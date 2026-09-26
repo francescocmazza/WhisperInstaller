@@ -1,0 +1,42 @@
+name: Bootstrap repository
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".bootstrap/whisper-installer-bootstrap.zip"
+
+permissions:
+  contents: write
+
+jobs:
+  expand:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Expand source package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .bootstrap/unpacked
+          mkdir -p .bootstrap/unpacked
+          unzip -q .bootstrap/whisper-installer-bootstrap.zip -d .bootstrap/unpacked
+          cp -a .bootstrap/unpacked/. .
+          rm -rf .bootstrap
+          rm -f .github/workflows/bootstrap.yml
+
+      - name: Commit definitive repository contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git commit -m "Populate Whisper Installer source and definitive installer"
+          git push
