@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - ".bootstrap/whisper-installer-bootstrap.zip"
+      - ".bootstrap/**"
 
 permissions:
   contents: write
@@ -16,27 +16,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Expand source package
+      - name: Reconstruct and verify source archive
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf .bootstrap/unpacked
-          mkdir -p .bootstrap/unpacked
-          unzip -q .bootstrap/whisper-installer-bootstrap.zip -d .bootstrap/unpacked
-          cp -a .bootstrap/unpacked/. .
+          cat .bootstrap/part-*.b64 | base64 -d > /tmp/whisper-installer.zip
+          echo "3547373eea285bce428471be41e495879e1f2ce7d09d9f626d86a6b4bd18cc4c  /tmp/whisper-installer.zip" | sha256sum -c -
+
+      - name: Expand definitive repository contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/whisper-installer-unpacked
+          mkdir -p /tmp/whisper-installer-unpacked
+          unzip -q /tmp/whisper-installer.zip -d /tmp/whisper-installer-unpacked
+          cp -a /tmp/whisper-installer-unpacked/. .
           rm -rf .bootstrap
           rm -f .github/workflows/bootstrap.yml
 
-      - name: Commit definitive repository contents
+      - name: Commit definitive source and installer
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          if git diff --cached --quiet; then
-            echo "Nothing to commit."
-            exit 0
-          fi
-          git commit -m "Populate Whisper Installer source and definitive installer"
+          git diff --cached --quiet && exit 0
+          git commit -m "Populate source and definitive Whisper installer"
           git push
