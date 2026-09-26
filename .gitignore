@@ -1,0 +1,38 @@
+# Secrets / personal configuration
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+*.p12
+secrets/
+credentials/
+user_settings.yaml
+*token*
+*secret*
+
+# Runtime / downloaded models
+runtime/
+models/
+.cache/
+huggingface/
+debug-audio/
+
+# Logs / transcripts / personal data
+*.log
+logs/
+transcripts/
+stats/
+audit/
+
+# Build outputs
+installer/Output/
+dist/
+build/
+*.exe
+*.msi
+
+# Python
+__pycache__/
+*.pyc
+.venv/

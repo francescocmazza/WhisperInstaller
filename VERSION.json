@@ -1,0 +1,23 @@
+{
+  "wrapper_version": "1.0.0",
+  "upstream_project": "drajb/whisper-local",
+  "upstream_version": "0.18.3",
+  "upstream_commit": "8e05b840fac737d4e0dec0886c6d38d0664f94c8",
+  "python_version": "3.12.10",
+  "profile": {
+    "model": "large-v3-turbo",
+    "device": "cuda",
+    "compute_type": "float16",
+    "audio_host": "MME",
+    "continuous_mode": true,
+    "chunk_seconds": 30,
+    "hotkey": "f24",
+    "recording_mode": "toggle",
+    "realtime_vad": false
+  },
+  "cuda_packages": {
+    "nvidia-cuda-runtime-cu12": "12.9.79",
+    "nvidia-cublas-cu12": "12.9.1.4",
+    "nvidia-cudnn-cu12": "9.10.2.21"
+  }
+}

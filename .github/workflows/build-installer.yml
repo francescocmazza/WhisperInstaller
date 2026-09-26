@@ -1,0 +1,60 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan repository for obvious secrets/personal paths
+        run: python scripts/check_secrets.py
+
+      - name: Generate definitive standalone PowerShell installer
+        run: python scripts/build_standalone.py
+
+      - name: Commit generated standalone installer if changed
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Whisper-Seamless-Installer-1.0.0.ps1 Whisper-Seamless-Installer-1.0.0.ps1.sha256.txt
+          if (git diff --cached --quiet) {
+            Write-Host "Standalone installer already up to date."
+          } else {
+            git commit -m "Build definitive standalone installer"
+            git push
+          }
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+
+      - name: Build EXE installer
+        shell: powershell
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" ".\installer\WhisperSeamless.iss"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Whisper-Seamless-Setup
+          path: installer/Output/Whisper-Seamless-Setup-1.0.0.exe
+          if-no-files-found: error
+
+      - name: Attach installer to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/Whisper-Seamless-Setup-1.0.0.exe
