@@ -16,4 +16,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup build failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "Built: installer\Output\Whisper-Seamless-Setup-1.2.0.exe" -ForegroundColor Green
+Write-Host "Built: installer\Output\Whisper-Seamless-Setup-1.2.1.exe" -ForegroundColor Green
