@@ -3,11 +3,31 @@
 Reproducible installer for long-form local Whisper dictation on Windows/NVIDIA,
 based on **Whisper Local 0.18.3** with a seamless 30-second rollover patch.
 
+## v1.1.0 installer configuration UI
+
+The Windows `.exe` installer now includes a dedicated **Whisper configuration**
+page before installation:
+
+- choose the global dictation hotkey instead of being forced to use F24;
+- F13-F24 are offered first because they are rarely used by normal applications;
+- common modifier combinations are also offered, and a compatible custom value can be typed;
+- the installer reads and displays the **current Whisper hotkey** when upgrading/reconfiguring;
+- it tests whether the selected hotkey can be registered globally by Windows;
+- if Windows reports the combination as already registered/reserved, the installer warns and requires explicit confirmation before continuing;
+- if the selected hotkey differs from the current Whisper binding, the installer asks for explicit confirmation before changing it;
+- a checkbox enables or disables **Start Whisper automatically when I sign in to Windows** and reflects the current state on existing installations.
+
+Windows can reliably tell us whether a global hotkey is already registered, but it
+does **not** provide a reliable public API that identifies the process that owns
+that registration. For this reason the installer reports `available` or
+`already registered by Windows/another application`, rather than inventing an
+application name.
+
 ## Installed profile
 
 - Whisper Local `0.18.3`, pinned to commit `8e05b840fac737d4e0dec0886c6d38d0664f94c8`
 - `large-v3-turbo`, NVIDIA CUDA, `float16`
-- F24 starts continuous dictation; Esc stops/cancels
+- configurable global hotkey (default: F24); Esc stops/cancels
 - MME mono input
 - persistent microphone stream and upstream 500 ms pre-roll
 - automatic 30-second chunks with capture continuing while the previous chunk is transcribed
@@ -17,27 +37,34 @@ based on **Whisper Local 0.18.3** with a seamless 30-second rollover patch.
 
 ## Recommended installer
 
-Use the generated standalone installer in the repository root:
+Use the latest release executable:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Whisper-Seamless-Installer-1.0.0.ps1
+```text
+Whisper-Seamless-Setup-1.1.0.exe
 ```
 
-The SHA-256 is stored beside it. GitHub Actions regenerates the standalone
-installer from the committed source and also builds
-`Whisper-Seamless-Setup-1.0.0.exe` as a workflow artifact.
+The graphical installer is the recommended path because it exposes the hotkey
+and autostart controls described above.
 
 For development/modular installation:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-WhisperSeamless.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-WhisperSeamless.ps1 -RecordingHotkey f24
 ```
+
+The standalone PowerShell installer also accepts a hotkey from the command line:
+
+```powershell
+.\Whisper-Seamless-Installer-1.1.0.ps1 -RecordingHotkey "ctrl+alt+space"
+```
+
+Add `-NoAutostart` to explicitly disable Start-with-Windows.
 
 Default install directory: `%LOCALAPPDATA%\WhisperSeamless`.
 Existing `%APPDATA%\whisperkey\user_settings.yaml` is backed up before merging
 only the required profile settings.
 
-### Switches
+### Other switches
 
 ```powershell
 .\Install-WhisperSeamless.ps1 -SkipModelDownload
@@ -57,6 +84,12 @@ Diagnostics:
 ```powershell
 .\scripts\Doctor.ps1
 ```
+
+## Build validation
+
+Pull requests run the full Windows installer build, including Inno Setup
+compilation. This catches errors in the custom configuration wizard before they
+can reach `main`.
 
 ## Security
 

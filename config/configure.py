@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 from datetime import datetime
 from pathlib import Path
 import os
+import re
 import shutil
 
 from ruamel.yaml import YAML
@@ -22,7 +24,37 @@ def merge_dict(base: dict, updates: dict) -> None:
             base[key] = value
 
 
+def normalize_hotkey(value: str) -> str:
+    hotkey = value.strip().lower().replace(" ", "")
+    parts = [part for part in hotkey.split("+") if part]
+    if not parts:
+        raise ValueError("Hotkey cannot be empty")
+
+    key = parts[-1]
+    modifiers = parts[:-1]
+    valid_modifiers = {"ctrl", "alt", "shift", "win"}
+    if len(set(modifiers)) != len(modifiers) or any(m not in valid_modifiers for m in modifiers):
+        raise ValueError(f"Unsupported modifier in hotkey: {value}")
+
+    function_key = re.fullmatch(r"f([1-9]|1[0-9]|2[0-4])", key)
+    simple_key = re.fullmatch(r"[a-z0-9]", key) or key == "space"
+    if not function_key and not simple_key:
+        raise ValueError(
+            "Hotkey key must be F1-F24, A-Z, 0-9 or Space; "
+            "letters/digits/Space may be combined with Ctrl/Alt/Shift/Win"
+        )
+    if simple_key and not modifiers:
+        raise ValueError("Bare letters, digits and Space are not allowed; add a modifier")
+
+    return "+".join(parts)
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--recording-hotkey", default="f24")
+    args = parser.parse_args()
+    recording_hotkey = normalize_hotkey(args.recording_hotkey)
+
     appdata = Path(os.environ["APPDATA"])
     cfg_dir = appdata / "whisperkey"
     cfg_dir.mkdir(parents=True, exist_ok=True)
@@ -53,7 +85,7 @@ def main() -> int:
         },
         "streaming": {"streaming_enabled": False, "deliver_to_cursor": False},
         "hotkey": {
-            "recording_hotkey": "f24",
+            "recording_hotkey": recording_hotkey,
             "recording_mode": "toggle",
             "cancel_combination": "esc",
         },
@@ -84,7 +116,10 @@ def main() -> int:
 
     (cfg_dir / "first_run_complete.txt").write_text("ok", encoding="utf-8")
     print(f"Configured: {cfg}")
-    print("Profile: large-v3-turbo / CUDA float16 / F24 / MME / continuous 30 s")
+    print(
+        "Profile: large-v3-turbo / CUDA float16 / "
+        f"{recording_hotkey.upper()} / MME / continuous 30 s"
+    )
     return 0
 
 

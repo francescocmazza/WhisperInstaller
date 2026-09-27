@@ -1,5 +1,5 @@
 {
-  "wrapper_version": "1.0.0",
+  "wrapper_version": "1.1.0",
   "upstream_project": "drajb/whisper-local",
   "upstream_version": "0.18.3",
   "upstream_commit": "8e05b840fac737d4e0dec0886c6d38d0664f94c8",
@@ -12,8 +12,10 @@
     "continuous_mode": true,
     "chunk_seconds": 30,
     "hotkey": "f24",
+    "hotkey_configurable": true,
     "recording_mode": "toggle",
-    "realtime_vad": false
+    "realtime_vad": false,
+    "autostart_configurable": true
   },
   "cuda_packages": {
     "nvidia-cuda-runtime-cu12": "12.9.79",
