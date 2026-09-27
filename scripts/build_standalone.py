@@ -3,8 +3,8 @@ import base64
 import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "Whisper-Seamless-Installer-1.0.0.ps1"
-CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.0.0.ps1.sha256.txt"
+OUTPUT = ROOT / "Whisper-Seamless-Installer-1.1.0.ps1"
+CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.1.0.ps1.sha256.txt"
 
 PAYLOAD = [
     "Install-WhisperSeamless.ps1",
@@ -21,7 +21,8 @@ parts = [r'''[CmdletBinding()]
 param(
     [switch]$SkipModelDownload,
     [switch]$NoAutostart,
-    [switch]$NoLaunch
+    [switch]$NoLaunch,
+    [string]$RecordingHotkey = "f24"
 )
 
 Set-StrictMode -Version Latest
@@ -50,7 +51,8 @@ for rel in PAYLOAD:
 parts.append(r'''
     $childArgs = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
-        "-File", (Join-Path $stage "Install-WhisperSeamless.ps1")
+        "-File", (Join-Path $stage "Install-WhisperSeamless.ps1"),
+        "-RecordingHotkey", $RecordingHotkey
     )
     if ($SkipModelDownload) { $childArgs += "-SkipModelDownload" }
     if ($NoAutostart) { $childArgs += "-NoAutostart" }
