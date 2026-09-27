@@ -25,6 +25,9 @@ jobs:
       - name: Validate Python sources
         run: python -m py_compile config/configure.py scripts/preflight.py scripts/check_secrets.py scripts/build_standalone.py scripts/launch_with_binding.py
 
+      - name: Import Windows physical-key hook module
+        run: python -c "import scripts.launch_with_binding; print('physical-key hook import OK')"
+
       - name: Generate definitive standalone PowerShell installer
         run: python scripts/build_standalone.py
 
