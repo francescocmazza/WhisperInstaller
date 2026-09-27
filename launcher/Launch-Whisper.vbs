@@ -14,5 +14,5 @@ newPath = sitepkgs & "\nvidia\cuda_runtime\bin;" & _
 
 sh.Environment("PROCESS")("PATH") = newPath
 
-cmd = """" & py & """ -m whisper_key.main"
+cmd = """" & py & """ """ & root & "\\scripts\\launch_with_binding.py" & """"
 sh.Run cmd, 0, False
