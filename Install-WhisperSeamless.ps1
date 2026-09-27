@@ -4,7 +4,11 @@ param(
     [switch]$NoAutostart,
     [switch]$NoLaunch,
     [switch]$FromInno,
-    [string]$RecordingHotkey = "f24"
+    [string]$RecordingHotkey = "f24",
+    [ValidateSet("native","physical")]
+    [string]$BindingMode = "native",
+    [int]$PhysicalKeyVk = 0,
+    [string]$PhysicalKeyName = ""
 )
 
 Set-StrictMode -Version Latest
@@ -43,10 +47,14 @@ $transcript = Join-Path $LogDir "install-$stamp.log"
 Start-Transcript -Path $transcript -Force | Out-Null
 
 try {
-    Write-Host "Whisper Seamless 1.1.0" -ForegroundColor Green
+    Write-Host "Whisper Seamless 1.2.0" -ForegroundColor Green
     Write-Host "Pinned upstream: Whisper Local 0.18.3 @ $UpstreamCommit"
     Write-Host "Install root: $InstallRoot"
     Write-Host "Recording hotkey: $RecordingHotkey"
+    Write-Host "Binding mode: $BindingMode"
+    if ($BindingMode -eq "physical") {
+        Write-Host "Physical key: $PhysicalKeyName (VK=$PhysicalKeyVk)"
+    }
 
     Write-Step "Stopping any currently-running Whisper Local instance"
     try {
@@ -55,7 +63,7 @@ try {
                 ($_.Name -ieq "python.exe" -or
                  $_.Name -ieq "pythonw.exe" -or
                  $_.Name -ieq "whisper-local.exe") -and
-                ($_.CommandLine -match "whisper_key\.main|whisper-local")
+                ($_.CommandLine -match "whisper_key\.main|launch_with_binding\.py|whisper-local")
             } |
             ForEach-Object {
                 Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
@@ -151,8 +159,22 @@ try {
     & $Python (Join-Path $InstallRoot "patches\apply_seamless_patch.py")
     Assert-LastExit "Seamless patch"
 
-    Write-Step "Merging the selected hotkey / MME / continuous configuration"
-    & $Python (Join-Path $InstallRoot "config\configure.py") --recording-hotkey $RecordingHotkey
+    Write-Step "Merging the selected key binding / MME / continuous configuration"
+    $configureScript = Join-Path $InstallRoot "config\configure.py"
+    $configureArgs = @(
+        "--recording-hotkey", $RecordingHotkey,
+        "--binding-mode", $BindingMode
+    )
+    if ($BindingMode -eq "physical") {
+        if ($PhysicalKeyVk -lt 1 -or $PhysicalKeyVk -gt 255) {
+            throw "PhysicalKeyVk must be between 1 and 255 in physical binding mode."
+        }
+        $configureArgs += @(
+            "--physical-key-vk", [string]$PhysicalKeyVk,
+            "--physical-key-name", $PhysicalKeyName
+        )
+    }
+    & $Python $configureScript @configureArgs
     Assert-LastExit "Configuration"
 
     Write-Step "Validating CUDA runtime"
@@ -190,7 +212,13 @@ try {
 
     Write-Host ""
     Write-Host "INSTALLATION COMPLETE" -ForegroundColor Green
-    Write-Host "$($RecordingHotkey.ToUpperInvariant()): start continuous dictation"
+    if ($BindingMode -eq "physical") {
+        Write-Host "$PhysicalKeyName (VK=$PhysicalKeyVk): start continuous dictation"
+        Write-Host "Original key behavior is suppressed only while Whisper runs."
+        Write-Host "Closing or uninstalling Whisper restores the original Windows key behavior automatically."
+    } else {
+        Write-Host "$($RecordingHotkey.ToUpperInvariant()): start continuous dictation"
+    }
     Write-Host "Esc: stop/cancel the live session"
     Write-Host "Start with Windows: $(-not $NoAutostart)"
     Write-Host "Model: large-v3-turbo / CUDA float16"
