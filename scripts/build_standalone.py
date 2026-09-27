@@ -3,8 +3,8 @@ import base64
 import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "Whisper-Seamless-Installer-1.1.0.ps1"
-CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.1.0.ps1.sha256.txt"
+OUTPUT = ROOT / "Whisper-Seamless-Installer-1.2.0.ps1"
+CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.2.0.ps1.sha256.txt"
 
 PAYLOAD = [
     "Install-WhisperSeamless.ps1",
@@ -15,6 +15,7 @@ PAYLOAD = [
     "launcher/Launch-Whisper.vbs",
     "scripts/preflight.py",
     "scripts/Doctor.ps1",
+    "scripts/launch_with_binding.py",
 ]
 
 parts = [r'''[CmdletBinding()]
@@ -22,7 +23,11 @@ param(
     [switch]$SkipModelDownload,
     [switch]$NoAutostart,
     [switch]$NoLaunch,
-    [string]$RecordingHotkey = "f24"
+    [string]$RecordingHotkey = "f24",
+    [ValidateSet("native","physical")]
+    [string]$BindingMode = "native",
+    [int]$PhysicalKeyVk = 0,
+    [string]$PhysicalKeyName = ""
 )
 
 Set-StrictMode -Version Latest
@@ -52,7 +57,10 @@ parts.append(r'''
     $childArgs = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", (Join-Path $stage "Install-WhisperSeamless.ps1"),
-        "-RecordingHotkey", $RecordingHotkey
+        "-RecordingHotkey", $RecordingHotkey,
+        "-BindingMode", $BindingMode,
+        "-PhysicalKeyVk", [string]$PhysicalKeyVk,
+        "-PhysicalKeyName", $PhysicalKeyName
     )
     if ($SkipModelDownload) { $childArgs += "-SkipModelDownload" }
     if ($NoAutostart) { $childArgs += "-NoAutostart" }
