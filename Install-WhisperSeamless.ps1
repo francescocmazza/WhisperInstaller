@@ -3,7 +3,8 @@ param(
     [switch]$SkipModelDownload,
     [switch]$NoAutostart,
     [switch]$NoLaunch,
-    [switch]$FromInno
+    [switch]$FromInno,
+    [string]$RecordingHotkey = "f24"
 )
 
 Set-StrictMode -Version Latest
@@ -42,9 +43,10 @@ $transcript = Join-Path $LogDir "install-$stamp.log"
 Start-Transcript -Path $transcript -Force | Out-Null
 
 try {
-    Write-Host "Whisper Seamless 1.0.0" -ForegroundColor Green
+    Write-Host "Whisper Seamless 1.1.0" -ForegroundColor Green
     Write-Host "Pinned upstream: Whisper Local 0.18.3 @ $UpstreamCommit"
     Write-Host "Install root: $InstallRoot"
+    Write-Host "Recording hotkey: $RecordingHotkey"
 
     Write-Step "Stopping any currently-running Whisper Local instance"
     try {
@@ -149,8 +151,8 @@ try {
     & $Python (Join-Path $InstallRoot "patches\apply_seamless_patch.py")
     Assert-LastExit "Seamless patch"
 
-    Write-Step "Merging the public F24 / MME / continuous configuration"
-    & $Python (Join-Path $InstallRoot "config\configure.py")
+    Write-Step "Merging the selected hotkey / MME / continuous configuration"
+    & $Python (Join-Path $InstallRoot "config\configure.py") --recording-hotkey $RecordingHotkey
     Assert-LastExit "Configuration"
 
     Write-Step "Validating CUDA runtime"
@@ -173,20 +175,24 @@ try {
     $shortcut.Description = "Whisper Seamless local dictation"
     $shortcut.Save()
 
+    $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
     if (-not $NoAutostart) {
         Write-Step "Enabling per-user start at login"
-        $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
         New-Item -Path $runKey -Force | Out-Null
         $launch = '"' + (Join-Path $env:WINDIR "System32\wscript.exe") + '" "' +
                   (Join-Path $InstallRoot "launcher\Launch-Whisper.vbs") + '"'
         New-ItemProperty -Path $runKey -Name "WhisperLocal" -Value $launch `
             -PropertyType String -Force | Out-Null
+    } else {
+        Write-Step "Disabling per-user start at login"
+        Remove-ItemProperty -Path $runKey -Name "WhisperLocal" -ErrorAction SilentlyContinue
     }
 
     Write-Host ""
     Write-Host "INSTALLATION COMPLETE" -ForegroundColor Green
-    Write-Host "F24: start continuous dictation"
+    Write-Host "$($RecordingHotkey.ToUpperInvariant()): start continuous dictation"
     Write-Host "Esc: stop/cancel the live session"
+    Write-Host "Start with Windows: $(-not $NoAutostart)"
     Write-Host "Model: large-v3-turbo / CUDA float16"
     Write-Host "Audio: MME / mono / seamless 30-second rollover"
     Write-Host "Log: $transcript"
