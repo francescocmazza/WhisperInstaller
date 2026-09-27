@@ -47,7 +47,7 @@ $transcript = Join-Path $LogDir "install-$stamp.log"
 Start-Transcript -Path $transcript -Force | Out-Null
 
 try {
-    Write-Host "Whisper Seamless 1.2.0" -ForegroundColor Green
+    Write-Host "Whisper Seamless 1.2.1" -ForegroundColor Green
     Write-Host "Pinned upstream: Whisper Local 0.18.3 @ $UpstreamCommit"
     Write-Host "Install root: $InstallRoot"
     Write-Host "Recording hotkey: $RecordingHotkey"
@@ -124,6 +124,12 @@ try {
 
     if (-not (Test-Path $Python)) {
         throw "Private Python runtime was not created: $Python"
+    }
+
+    if ($BindingMode -eq "physical") {
+        Write-Step "Validating Windows physical-key hook"
+        & $Python (Join-Path $InstallRoot "scripts\launch_with_binding.py") --selftest-hook
+        Assert-LastExit "Physical-key hook self-test"
     }
 
     Write-Step "Installing pinned Whisper Local 0.18.3"
