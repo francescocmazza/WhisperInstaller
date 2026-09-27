@@ -22,6 +22,12 @@ jobs:
       - name: Scan repository for obvious secrets/personal paths
         run: python scripts/check_secrets.py
 
+      - name: Validate Python sources
+        run: python -m py_compile config/configure.py scripts/preflight.py scripts/check_secrets.py scripts/build_standalone.py scripts/launch_with_binding.py
+
+      - name: Import Windows physical-key hook module
+        run: python -c "import scripts.launch_with_binding; print('physical-key hook import OK')"
+
       - name: Generate definitive standalone PowerShell installer
         run: python scripts/build_standalone.py
 
@@ -31,14 +37,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Whisper-Seamless-Installer-1.1.0.ps1 Whisper-Seamless-Installer-1.1.0.ps1.sha256.txt
-          if (Test-Path Whisper-Seamless-Installer-1.0.0.ps1) {
-            git rm -f Whisper-Seamless-Installer-1.0.0.ps1 Whisper-Seamless-Installer-1.0.0.ps1.sha256.txt
-          }
+          git add Whisper-Seamless-Installer-1.2.0.ps1 Whisper-Seamless-Installer-1.2.0.ps1.sha256.txt
+          Get-ChildItem "Whisper-Seamless-Installer-*.ps1*" |
+            Where-Object { $_.Name -notlike "Whisper-Seamless-Installer-1.2.0.ps1*" } |
+            ForEach-Object { git rm -f $_.FullName }
           if (git diff --cached --quiet) {
             Write-Host "Standalone installer already up to date."
           } else {
-            git commit -m "Build definitive standalone installer v1.1.0"
+            git commit -m "Build definitive standalone installer v1.2.0"
             git push
           }
 
@@ -55,17 +61,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Whisper-Seamless-Setup
-          path: installer/Output/Whisper-Seamless-Setup-1.1.0.exe
+          path: installer/Output/Whisper-Seamless-Setup-1.2.0.exe
           if-no-files-found: error
 
-      - name: Publish definitive v1.1.0 release
+      - name: Publish definitive v1.2.0 release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v1.1.0"
-          $exe = "installer/Output/Whisper-Seamless-Setup-1.1.0.exe"
+          $tag = "v1.2.0"
+          $exe = "installer/Output/Whisper-Seamless-Setup-1.2.0.exe"
           $head = (git rev-parse HEAD).Trim()
 
           $headers = @{
@@ -86,5 +92,5 @@ jobs:
           if ($releaseExists) {
             gh release upload $tag $exe --clobber
           } else {
-            gh release create $tag $exe --target $head --title "Whisper Seamless v1.1.0" --notes "Adds configurable Whisper hotkey selection, global hotkey conflict detection/confirmation, and Start-with-Windows control in the installer UI."
+            gh release create $tag $exe --target $head --title "Whisper Seamless v1.2.0" --notes "Adds press-a-key capture, reversible physical-key interception (including the Windows Menu/Context Menu key), automatic restoration of the key's original behavior when Whisper exits or is uninstalled, plus configurable autostart."
           }

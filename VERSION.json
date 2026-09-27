@@ -1,5 +1,5 @@
 {
-  "wrapper_version": "1.1.0",
+  "wrapper_version": "1.2.0",
   "upstream_project": "drajb/whisper-local",
   "upstream_version": "0.18.3",
   "upstream_commit": "8e05b840fac737d4e0dec0886c6d38d0664f94c8",
@@ -15,7 +15,10 @@
     "hotkey_configurable": true,
     "recording_mode": "toggle",
     "realtime_vad": false,
-    "autostart_configurable": true
+    "autostart_configurable": true,
+    "physical_key_capture": true,
+    "reversible_physical_override": true,
+    "default_physical_key": "VK_APPS / Menu key supported"
   },
   "cuda_packages": {
     "nvidia-cuda-runtime-cu12": "12.9.79",

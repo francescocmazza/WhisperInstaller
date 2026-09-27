@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 from datetime import datetime
 from pathlib import Path
 import os
@@ -52,8 +53,19 @@ def normalize_hotkey(value: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--recording-hotkey", default="f24")
+    parser.add_argument("--binding-mode", choices=("native", "physical"), default="native")
+    parser.add_argument("--physical-key-vk", type=int, default=0)
+    parser.add_argument("--physical-key-name", default="")
     args = parser.parse_args()
-    recording_hotkey = normalize_hotkey(args.recording_hotkey)
+
+    if args.binding_mode == "physical":
+        if not (1 <= args.physical_key_vk <= 255):
+            raise ValueError("Physical-key mode requires a VirtualKey value from 1 to 255")
+        # Whisper keeps a harmless internal fallback hotkey. The physical key is
+        # intercepted by launch_with_binding.py and calls Whisper directly.
+        recording_hotkey = "f24"
+    else:
+        recording_hotkey = normalize_hotkey(args.recording_hotkey)
 
     appdata = Path(os.environ["APPDATA"])
     cfg_dir = appdata / "whisperkey"
@@ -114,12 +126,30 @@ def main() -> int:
     with cfg.open("w", encoding="utf-8") as f:
         yaml.dump(data, f)
 
+    binding_cfg = configparser.ConfigParser()
+    binding_cfg["Binding"] = {
+        "Mode": args.binding_mode,
+        "Display": args.physical_key_name if args.binding_mode == "physical" else recording_hotkey,
+        "VirtualKey": str(args.physical_key_vk if args.binding_mode == "physical" else 0),
+        "WhisperHotkey": recording_hotkey,
+        "Reversible": "true",
+    }
+    binding_path = cfg_dir / "seamless_binding.ini"
+    with binding_path.open("w", encoding="utf-8") as f:
+        binding_cfg.write(f)
+
     (cfg_dir / "first_run_complete.txt").write_text("ok", encoding="utf-8")
     print(f"Configured: {cfg}")
-    print(
-        "Profile: large-v3-turbo / CUDA float16 / "
-        f"{recording_hotkey.upper()} / MME / continuous 30 s"
-    )
+    if args.binding_mode == "physical":
+        print(
+            "Profile: large-v3-turbo / CUDA float16 / physical key "
+            f"{args.physical_key_name or args.physical_key_vk} / MME / continuous 30 s"
+        )
+    else:
+        print(
+            "Profile: large-v3-turbo / CUDA float16 / "
+            f"{recording_hotkey.upper()} / MME / continuous 30 s"
+        )
     return 0
 
 
