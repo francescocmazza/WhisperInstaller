@@ -450,7 +450,7 @@ end;
 procedure CaptureButtonClick(Sender: TObject);
 begin
   CaptureEdit.Text := 'Premi ora il tasto fisico da dedicare a Whisper...';
-  CaptureEdit.SetFocus;
+  WizardForm.ActiveControl := CaptureEdit;
 end;
 
 procedure CaptureKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
