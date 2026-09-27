@@ -27,8 +27,13 @@ WM_SYSKEYUP = 0x0105
 WM_QUIT = 0x0012
 LLKHF_INJECTED = 0x10
 
-user32 = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
+# use_last_error=True is required if we want the Win32 error reported by
+# SetWindowsHookEx/GetModuleHandle instead of a stale ctypes error.
+user32 = ctypes.WinDLL("user32", use_last_error=True)
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+LRESULT = ctypes.c_ssize_t
+MODULE_HANDLE = getattr(wintypes, "HMODULE", wintypes.HINSTANCE)
 
 
 class KBDLLHOOKSTRUCT(ctypes.Structure):
@@ -42,7 +47,7 @@ class KBDLLHOOKSTRUCT(ctypes.Structure):
 
 
 HOOKPROC = ctypes.WINFUNCTYPE(
-    ctypes.c_longlong,
+    LRESULT,
     ctypes.c_int,
     wintypes.WPARAM,
     wintypes.LPARAM,
@@ -61,7 +66,7 @@ user32.CallNextHookEx.argtypes = [
     wintypes.WPARAM,
     wintypes.LPARAM,
 ]
-user32.CallNextHookEx.restype = ctypes.c_longlong
+user32.CallNextHookEx.restype = LRESULT
 user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
 user32.UnhookWindowsHookEx.restype = wintypes.BOOL
 user32.GetMessageW.argtypes = [
@@ -78,7 +83,10 @@ user32.PostThreadMessageW.argtypes = [
     wintypes.LPARAM,
 ]
 user32.PostThreadMessageW.restype = wintypes.BOOL
+kernel32.GetCurrentThreadId.argtypes = []
 kernel32.GetCurrentThreadId.restype = wintypes.DWORD
+kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+kernel32.GetModuleHandleW.restype = MODULE_HANDLE
 
 
 def _binding_path() -> Path:
@@ -143,12 +151,20 @@ class PhysicalKeyHook:
     def _run(self):
         try:
             self._thread_id = kernel32.GetCurrentThreadId()
+            # IMPORTANT on 64-bit Windows: GetModuleHandleW returns a pointer-
+            # sized HMODULE. Without an explicit ctypes restype it defaults to
+            # a 32-bit c_int, truncating the module handle. Windows then rejects
+            # SetWindowsHookExW with ERROR_MOD_NOT_FOUND (WinError 126).
             module = kernel32.GetModuleHandleW(None)
+            if not module:
+                raise ctypes.WinError(ctypes.get_last_error())
+
+            ctypes.set_last_error(0)
             self._hook = user32.SetWindowsHookExW(
                 WH_KEYBOARD_LL, self._proc, module, 0
             )
             if not self._hook:
-                raise ctypes.WinError()
+                raise ctypes.WinError(ctypes.get_last_error())
             self.logger.info(
                 "Physical key override active: %s (VK=%s)",
                 self.display_name,
@@ -243,6 +259,23 @@ def _install_physical_binding(main_module, virtual_key: int, display_name: str):
     main_module.setup_hotkey_listener = setup_hotkey_listener_with_physical_key
 
 
+def selftest_hook():
+    """Install and immediately remove a real WH_KEYBOARD_LL hook.
+
+    This is used by Windows CI so an import-only test cannot miss ABI/signature
+    problems such as a truncated 64-bit HMODULE.
+    """
+    hook = PhysicalKeyHook(
+        virtual_key=0x87,  # F24; do not wait for or synthesize input.
+        display_name="CI hook self-test",
+        on_press=None,
+        on_release=None,
+    )
+    hook.start()
+    hook.stop()
+    print("physical-key hook start/stop OK")
+
+
 def main():
     mode, virtual_key, display_name = _load_binding()
 
@@ -259,4 +292,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--selftest-hook" in os.sys.argv[1:]:
+        selftest_hook()
+    else:
+        main()

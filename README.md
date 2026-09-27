@@ -3,7 +3,21 @@
 Reproducible installer for long-form local Whisper dictation on Windows/NVIDIA,
 based on **Whisper Local 0.18.3** with a seamless 30-second rollover patch.
 
-## v1.2.0 — press the key you want
+## v1.2.1 — press the key you want
+
+### Windows 64-bit hook fix
+
+v1.2.1 fixes a Windows 64-bit ABI bug in v1.2.0. `GetModuleHandleW`
+was being called without an explicit pointer-sized ctypes return type, so its
+64-bit module handle could be truncated before being passed to
+`SetWindowsHookExW`. On affected machines the physical-key bridge failed with
+`WinError 126 (The specified module could not be found)`.
+
+The Win32 signatures are now explicit and pointer-sized, `use_last_error=True`
+is used for accurate diagnostics, and CI performs a real
+`WH_KEYBOARD_LL` install/remove test on Windows instead of merely importing the
+module.
+
 
 The Windows installer includes a configuration page where you can either choose
 a normal global hotkey or simply **click the capture field and press the physical
@@ -76,7 +90,7 @@ an application name.
 Use the latest release executable:
 
 ```text
-Whisper-Seamless-Setup-1.2.0.exe
+Whisper-Seamless-Setup-1.2.1.exe
 ```
 
 The graphical `.exe` is recommended because it provides physical key capture
@@ -121,7 +135,7 @@ Pull requests run:
 
 - secret/personal-data scanning;
 - Python syntax checks;
-- a real Windows import smoke test of the low-level keyboard hook module;
+- a real Windows start/stop test of the low-level keyboard hook;
 - Inno Setup compilation of the graphical installer.
 
 ## Security
