@@ -28,42 +28,27 @@ jobs:
       - name: Validate captured OEM hotkey syntax
         run: python -c "from config.configure import normalize_hotkey; assert normalize_hotkey('alt+226') == 'alt+226'; assert normalize_hotkey('ctrl+alt+0xe2') == 'ctrl+alt+0xe2'; print('OEM hotkey parser OK')"
 
-      - name: Exercise private Python bootstrap
+      - name: Set up Python 3.12 base for venv test
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.10"
+
+      - name: Exercise isolated Whisper venv runtime
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          $pyVersion = "3.12.10"
-          $installer = Join-Path $env:RUNNER_TEMP "python-$pyVersion-amd64.exe"
           $target = Join-Path $env:RUNNER_TEMP "WhisperPrivatePython312"
-          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$pyVersion/python-$pyVersion-amd64.exe" -OutFile $installer -UseBasicParsing
           Remove-Item $target -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path $target | Out-Null
-          $bootstrapArgs = @(
-            "/quiet",
-            "InstallAllUsers=0",
-            "TargetDir=$target",
-            "Include_exe=1",
-            "Include_lib=1",
-            "Include_dev=1",
-            "Include_pip=1",
-            "Include_tcltk=1",
-            "Include_tools=1",
-            "Include_launcher=0",
-            "InstallLauncherAllUsers=0",
-            "Include_test=0",
-            "Include_doc=0",
-            "AssociateFiles=0",
-            "Shortcuts=0",
-            "PrependPath=0"
-          )
-          & $installer @bootstrapArgs
-          if ($LASTEXITCODE -ne 0) { throw "Python bootstrap exit code $LASTEXITCODE" }
-          $python = Join-Path $target "python.exe"
-          $pythonw = Join-Path $target "pythonw.exe"
-          if (!(Test-Path $python) -or !(Test-Path $pythonw)) { throw "Private Python runtime incomplete" }
-          & $python --version
+          $basePython = (Get-Command python.exe -ErrorAction Stop).Source
+          & $basePython -m venv $target
+          if ($LASTEXITCODE -ne 0) { throw "venv creation exit code $LASTEXITCODE" }
+          $python = Join-Path $target "Scripts\python.exe"
+          $pythonw = Join-Path $target "Scripts\pythonw.exe"
+          if (!(Test-Path $python) -or !(Test-Path $pythonw)) { throw "Whisper venv runtime incomplete" }
+          & $python -c "import sys,tkinter; print(sys.version); print('Tkinter OK')"
+          if ($LASTEXITCODE -ne 0) { throw "venv verification failed" }
+          & $python -m pip --version
           Remove-Item $target -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item $installer -Force -ErrorAction SilentlyContinue
 
       - name: Exercise Windows physical-key hook start/stop
         run: python scripts/launch_with_binding.py --selftest-hook
@@ -132,5 +117,5 @@ jobs:
           if ($releaseExists) {
             gh release upload $tag $exe --clobber
           } else {
-            gh release create $tag $exe --target $head --title "Whisper Seamless v1.3.3" --notes "Runs the private Python bootstrap directly instead of through Start-Process, writes a dedicated Python installer log, verifies python.exe/pythonw.exe, and adds a real Windows CI bootstrap test."
+            gh release create $tag $exe --target $head --title "Whisper Seamless v1.3.3" --notes "Uses an existing Python 3.12 x64 installation as the base for an isolated Whisper venv, falling back to installing Python only when needed. Supports both venv and legacy runtime layouts and verifies tkinter/pip on Windows CI."
           }
