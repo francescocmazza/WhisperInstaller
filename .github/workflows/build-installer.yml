@@ -40,14 +40,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Whisper-Seamless-Installer-1.3.1.ps1 Whisper-Seamless-Installer-1.3.1.ps1.sha256.txt
+          git add Whisper-Seamless-Installer-1.3.2.ps1 Whisper-Seamless-Installer-1.3.2.ps1.sha256.txt
           Get-ChildItem "Whisper-Seamless-Installer-*.ps1*" |
-            Where-Object { $_.Name -notlike "Whisper-Seamless-Installer-1.3.1.ps1*" } |
+            Where-Object { $_.Name -notlike "Whisper-Seamless-Installer-1.3.2.ps1*" } |
             ForEach-Object { git rm -f $_.FullName }
           if (git diff --cached --quiet) {
             Write-Host "Standalone installer already up to date."
           } else {
-            git commit -m "Build definitive standalone installer v1.3.1"
+            git commit -m "Build definitive standalone installer v1.3.2"
             git push
           }
 
@@ -64,17 +64,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Whisper-Seamless-Setup
-          path: installer/Output/Whisper-Seamless-Setup-1.3.1.exe
+          path: installer/Output/Whisper-Seamless-Setup-1.3.2.exe
           if-no-files-found: error
 
-      - name: Publish definitive v1.3.1 release
+      - name: Publish definitive v1.3.2 release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v1.3.1"
-          $exe = "installer/Output/Whisper-Seamless-Setup-1.3.1.exe"
+          $tag = "v1.3.2"
+          $exe = "installer/Output/Whisper-Seamless-Setup-1.3.2.exe"
           $head = (git rev-parse HEAD).Trim()
 
           $headers = @{
@@ -95,5 +95,5 @@ jobs:
           if ($releaseExists) {
             gh release upload $tag $exe --clobber
           } else {
-            gh release create $tag $exe --target $head --title "Whisper Seamless v1.3.1" --notes "Adds press-to-capture native hotkey chords, including Alt+< on European/Italian keyboards via VK_OEM_102, while retaining CPU INT8/CUDA selection, model selection, physical-key capture and autostart."
+            gh release create $tag $exe --target $head --title "Whisper Seamless v1.3.2" --notes "Fixes private Python bootstrap failures caused by PowerShell's automatic $args variable, cleans partial runtimes before retry, and avoids empty PhysicalKeyName arguments in native hotkey mode."
           }
