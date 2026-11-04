@@ -4,7 +4,10 @@ Dim sh, root, py, sitepkgs, oldPath, newPath, cmd
 Set sh = CreateObject("WScript.Shell")
 
 root = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\WhisperSeamless"
-py = root & "\runtime\Python312\pythonw.exe"
+py = root & "\runtime\Python312\Scripts\pythonw.exe"
+If Not CreateObject("Scripting.FileSystemObject").FileExists(py) Then
+    py = root & "\runtime\Python312\pythonw.exe"
+End If
 sitepkgs = root & "\runtime\Python312\Lib\site-packages"
 
 oldPath = sh.Environment("PROCESS")("PATH")
