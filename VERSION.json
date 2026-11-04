@@ -1,5 +1,5 @@
 {
-  "wrapper_version": "1.3.2",
+  "wrapper_version": "1.3.3",
   "upstream_project": "drajb/whisper-local",
   "upstream_version": "0.18.3",
   "upstream_commit": "8e05b840fac737d4e0dec0886c6d38d0664f94c8",
@@ -37,7 +37,9 @@
     "oem_102_capture": true,
     "oem_102_example": "Alt+<",
     "partial_python_runtime_recovery": true,
-    "native_empty_physical_key_arg_fix": true
+    "native_empty_physical_key_arg_fix": true,
+    "direct_python_bootstrap": true,
+    "python_bootstrap_log": true
   },
   "cuda_packages": {
     "nvidia-cuda-runtime-cu12": "12.9.79",
