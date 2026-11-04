@@ -216,6 +216,50 @@ try {
 
         Write-Host "Using Python base: $BasePython"
 
+        & $BasePython -c "import tkinter; print('Base Tkinter OK')" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Step "Repairing Python 3.12 Tcl/Tk support"
+            $tmp = Join-Path $env:TEMP "python-$PythonVersion-amd64.exe"
+            $pythonRepairLog = Join-Path $LogDir "python-repair-$stamp.log"
+            $baseDir = Split-Path -Parent $BasePython
+
+            Invoke-WebRequest -Uri $PythonUrl -OutFile $tmp -UseBasicParsing
+            $sig = Get-AuthenticodeSignature -FilePath $tmp
+            if ($sig.Status -ne "Valid" -or
+                $sig.SignerCertificate.Subject -notmatch "Python Software Foundation") {
+                throw "Python repair installer signature validation failed."
+            }
+
+            $repairArgs = @(
+                "/quiet",
+                "/log", "`"$pythonRepairLog`"",
+                "InstallAllUsers=0",
+                "TargetDir=`"$baseDir`"",
+                "Include_exe=1",
+                "Include_lib=1",
+                "Include_dev=1",
+                "Include_pip=1",
+                "Include_tcltk=1",
+                "Include_tools=1",
+                "Include_launcher=1",
+                "InstallLauncherAllUsers=0",
+                "Include_test=0",
+                "Include_doc=0",
+                "AssociateFiles=0",
+                "Shortcuts=0",
+                "PrependPath=0"
+            )
+
+            $repair = Start-Process -FilePath $tmp -ArgumentList $repairArgs -Wait -PassThru
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+            if ($repair.ExitCode -ne 0) {
+                throw "Python Tcl/Tk repair failed with exit code $($repair.ExitCode). Log: $pythonRepairLog"
+            }
+
+            & $BasePython -c "import tkinter; print('Base Tkinter repaired')"
+            Assert-LastExit "Python Tcl/Tk repair verification"
+        }
+
         Write-Step "Creating isolated Whisper Python environment"
         Remove-Item $RuntimeRoot -Recurse -Force -ErrorAction SilentlyContinue
         & $BasePython -m venv $RuntimeRoot
