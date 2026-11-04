@@ -8,7 +8,11 @@ param(
     [ValidateSet("native","physical")]
     [string]$BindingMode = "native",
     [int]$PhysicalKeyVk = 0,
-    [string]$PhysicalKeyName = ""
+    [string]$PhysicalKeyName = "",
+    [ValidateSet("auto","cuda","cpu")]
+    [string]$ComputeBackend = "auto",
+    [ValidateSet("large-v3-turbo","medium","small")]
+    [string]$WhisperModel = "large-v3-turbo"
 )
 
 Set-StrictMode -Version Latest
@@ -47,11 +51,13 @@ $transcript = Join-Path $LogDir "install-$stamp.log"
 Start-Transcript -Path $transcript -Force | Out-Null
 
 try {
-    Write-Host "Whisper Seamless 1.2.1" -ForegroundColor Green
+    Write-Host "Whisper Seamless 1.3.0" -ForegroundColor Green
     Write-Host "Pinned upstream: Whisper Local 0.18.3 @ $UpstreamCommit"
     Write-Host "Install root: $InstallRoot"
     Write-Host "Recording hotkey: $RecordingHotkey"
     Write-Host "Binding mode: $BindingMode"
+    Write-Host "Requested compute backend: $ComputeBackend"
+    Write-Host "Requested model: $WhisperModel"
     if ($BindingMode -eq "physical") {
         Write-Host "Physical key: $PhysicalKeyName (VK=$PhysicalKeyVk)"
     }
@@ -140,26 +146,53 @@ try {
     & $Python -m pip install --disable-pip-version-check --no-input --upgrade --force-reinstall $sourceUrl
     Assert-LastExit "Whisper Local install"
 
-    Write-Step "Installing pinned NVIDIA CUDA runtime packages"
+    Write-Step "Selecting compute backend"
+    $selectedDevice = $null
+    $selectedComputeType = $null
     $gpu = $null
-    try {
-        $gpu = (& nvidia-smi --query-gpu=name --format=csv,noheader 2>$null | Select-Object -First 1).Trim()
-    } catch {}
-    if (-not $gpu) {
-        throw "No NVIDIA GPU/driver detected with nvidia-smi. This public profile targets NVIDIA CUDA."
+
+    if ($ComputeBackend -eq "auto" -or $ComputeBackend -eq "cuda") {
+        try {
+            $gpu = (& nvidia-smi --query-gpu=name --format=csv,noheader 2>$null | Select-Object -First 1).Trim()
+        } catch {}
     }
-    Write-Host "Detected NVIDIA GPU: $gpu"
 
-    & $Python -m pip install --disable-pip-version-check --no-input --only-binary=:all: `
-        "nvidia-cuda-runtime-cu12==12.9.79" `
-        "nvidia-cublas-cu12==12.9.1.4" `
-        "nvidia-cudnn-cu12==9.10.2.21"
-    Assert-LastExit "NVIDIA runtime install"
+    if ($ComputeBackend -eq "cuda") {
+        if (-not $gpu) {
+            throw "CUDA was selected, but no working NVIDIA GPU/driver was detected with nvidia-smi."
+        }
+        $selectedDevice = "cuda"
+        $selectedComputeType = "float16"
+    } elseif ($ComputeBackend -eq "cpu") {
+        $selectedDevice = "cpu"
+        $selectedComputeType = "int8"
+    } elseif ($gpu) {
+        $selectedDevice = "cuda"
+        $selectedComputeType = "float16"
+    } else {
+        $selectedDevice = "cpu"
+        $selectedComputeType = "int8"
+    }
 
-    $site = Join-Path $RuntimeRoot "Lib\site-packages"
-    $env:PATH = (Join-Path $site "nvidia\cuda_runtime\bin") + ";" +
-                (Join-Path $site "nvidia\cublas\bin") + ";" +
-                (Join-Path $site "nvidia\cudnn\bin") + ";" + $env:PATH
+    if ($selectedDevice -eq "cuda") {
+        Write-Host "Detected NVIDIA GPU: $gpu"
+        Write-Step "Installing pinned NVIDIA CUDA runtime packages"
+        & $Python -m pip install --disable-pip-version-check --no-input --only-binary=:all: `
+            "nvidia-cuda-runtime-cu12==12.9.79" `
+            "nvidia-cublas-cu12==12.9.1.4" `
+            "nvidia-cudnn-cu12==9.10.2.21"
+        Assert-LastExit "NVIDIA runtime install"
+
+        $site = Join-Path $RuntimeRoot "Lib\site-packages"
+        $env:PATH = (Join-Path $site "nvidia\cuda_runtime\bin") + ";" +
+                    (Join-Path $site "nvidia\cublas\bin") + ";" +
+                    (Join-Path $site "nvidia\cudnn\bin") + ";" + $env:PATH
+    } else {
+        Write-Host "No usable NVIDIA CUDA device selected/detected."
+        Write-Host "Using CPU INT8 inference."
+    }
+
+    Write-Host "Selected runtime: $selectedDevice / $selectedComputeType / $WhisperModel"
 
     Write-Step "Applying seamless continuous-dictation patch"
     & $Python (Join-Path $InstallRoot "patches\apply_seamless_patch.py")
@@ -169,7 +202,10 @@ try {
     $configureScript = Join-Path $InstallRoot "config\configure.py"
     $configureArgs = @(
         "--recording-hotkey", $RecordingHotkey,
-        "--binding-mode", $BindingMode
+        "--binding-mode", $BindingMode,
+        "--whisper-model", $WhisperModel,
+        "--device", $selectedDevice,
+        "--compute-type", $selectedComputeType
     )
     if ($BindingMode -eq "physical") {
         if ($PhysicalKeyVk -lt 1 -or $PhysicalKeyVk -gt 255) {
@@ -183,14 +219,18 @@ try {
     & $Python $configureScript @configureArgs
     Assert-LastExit "Configuration"
 
-    Write-Step "Validating CUDA runtime"
+    Write-Step "Validating inference runtime"
     $preflight = Join-Path $InstallRoot "scripts\preflight.py"
-    if ($SkipModelDownload) {
-        & $Python $preflight
-    } else {
-        & $Python $preflight --download-model
+    $preflightArgs = @(
+        "--device", $selectedDevice,
+        "--compute-type", $selectedComputeType,
+        "--model", $WhisperModel
+    )
+    if (-not $SkipModelDownload) {
+        $preflightArgs += "--download-model"
     }
-    Assert-LastExit "CUDA/model preflight"
+    & $Python $preflight @preflightArgs
+    Assert-LastExit "Inference/model preflight"
 
     Write-Step "Creating Start Menu shortcut"
     $programs = [Environment]::GetFolderPath("Programs")
@@ -227,7 +267,7 @@ try {
     }
     Write-Host "Esc: stop/cancel the live session"
     Write-Host "Start with Windows: $(-not $NoAutostart)"
-    Write-Host "Model: large-v3-turbo / CUDA float16"
+    Write-Host "Model: $WhisperModel / $selectedDevice $selectedComputeType"
     Write-Host "Audio: MME / mono / seamless 30-second rollover"
     Write-Host "Log: $transcript"
 

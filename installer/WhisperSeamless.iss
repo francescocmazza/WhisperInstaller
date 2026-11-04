@@ -1,8 +1,8 @@
 ; Whisper Seamless Inno Setup definition
 #define MyAppName "Whisper Seamless"
-#define MyAppVersion "1.2.1"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "Whisper Seamless contributors"
-#define MyAppExeName "Whisper-Seamless-Setup-1.2.1.exe"
+#define MyAppExeName "Whisper-Seamless-Setup-1.3.0.exe"
 
 [Setup]
 AppId={{A31A6F39-5017-42DE-A35E-BD60BF1DCC72}
@@ -19,7 +19,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 OutputDir=Output
-OutputBaseFilename=Whisper-Seamless-Setup-1.2.1
+OutputBaseFilename=Whisper-Seamless-Setup-1.3.0
 UninstallDisplayName={#MyAppName}
 SetupLogging=yes
 
@@ -34,8 +34,8 @@ Source: "..\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesu
 
 [Run]
 Filename: "powershell.exe"; \
-    Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-WhisperSeamless.ps1"" -FromInno -RecordingHotkey ""{code:GetSelectedHotkey}"" -BindingMode ""{code:GetBindingMode}"" -PhysicalKeyVk {code:GetPhysicalKeyVk} -PhysicalKeyName ""{code:GetPhysicalKeyName}"" {code:GetAutostartSwitch}"; \
-    StatusMsg: "Installing isolated Python, Whisper Local, CUDA runtime and model..."; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-WhisperSeamless.ps1"" -FromInno -RecordingHotkey ""{code:GetSelectedHotkey}"" -BindingMode ""{code:GetBindingMode}"" -PhysicalKeyVk {code:GetPhysicalKeyVk} -PhysicalKeyName ""{code:GetPhysicalKeyName}"" -ComputeBackend ""{code:GetComputeBackend}"" -WhisperModel ""{code:GetWhisperModel}"" {code:GetAutostartSwitch}"; \
+    StatusMsg: "Installing isolated Python, Whisper Local, selected inference runtime and model..."; \
     Flags: waituntilterminated
 
 [UninstallRun]
@@ -75,7 +75,11 @@ const
 
 var
   ConfigPage: TWizardPage;
+  PerformancePage: TWizardPage;
   HotkeyCombo: TNewComboBox;
+  ComputeCombo: TNewComboBox;
+  ModelCombo: TNewComboBox;
+  PerformanceInfo: TNewStaticText;
   CurrentHotkeyLabel: TNewStaticText;
   HotkeyStatusLabel: TNewStaticText;
   CaptureLabel: TNewStaticText;
@@ -618,6 +622,47 @@ begin
     CurrentAutostartLabel.Caption := 'Nuova installazione: avvio automatico proposto come default.';
 
   UpdateHotkeyStatus(nil);
+
+  PerformancePage := CreateCustomPage(
+    ConfigPage.ID,
+    'Prestazioni Whisper',
+    'Scegli come eseguire il modello e il livello di accuratezza.');
+
+  ComputeCombo := TNewComboBox.Create(PerformancePage);
+  ComputeCombo.Parent := PerformancePage.Surface;
+  ComputeCombo.Left := 0;
+  ComputeCombo.Top := 12;
+  ComputeCombo.Width := PerformancePage.SurfaceWidth;
+  ComputeCombo.Style := csDropDownList;
+  ComputeCombo.Items.Add('Auto - NVIDIA CUDA se disponibile, altrimenti CPU INT8');
+  ComputeCombo.Items.Add('NVIDIA CUDA - float16');
+  ComputeCombo.Items.Add('CPU - INT8 (Intel/AMD, nessuna GPU NVIDIA richiesta)');
+  ComputeCombo.ItemIndex := 0;
+
+  ModelCombo := TNewComboBox.Create(PerformancePage);
+  ModelCombo.Parent := PerformancePage.Surface;
+  ModelCombo.Left := 0;
+  ModelCombo.Top := ComputeCombo.Top + ComputeCombo.Height + 18;
+  ModelCombo.Width := PerformancePage.SurfaceWidth;
+  ModelCombo.Style := csDropDownList;
+  ModelCombo.Items.Add('large-v3-turbo - massima precisione, piu pesante');
+  ModelCombo.Items.Add('medium - equilibrio precisione/velocita');
+  ModelCombo.Items.Add('small - piu rapido su CPU');
+  ModelCombo.ItemIndex := 0;
+
+  PerformanceInfo := TNewStaticText.Create(PerformancePage);
+  PerformanceInfo.Parent := PerformancePage.Surface;
+  PerformanceInfo.Left := 0;
+  PerformanceInfo.Top := ModelCombo.Top + ModelCombo.Height + 18;
+  PerformanceInfo.AutoSize := False;
+  PerformanceInfo.Width := PerformancePage.SurfaceWidth;
+  PerformanceInfo.Height := ScaleY(100);
+  PerformanceInfo.WordWrap := True;
+  PerformanceInfo.Caption :=
+    'Modalita Auto: se una GPU NVIDIA CUDA funzionante e disponibile, usa CUDA/float16; ' +
+    'altrimenti usa CPU/INT8. Le GPU integrate Intel e la NPU Intel non vengono ancora usate ' +
+    'da questo backend CTranslate2. Su CPU, large-v3-turbo privilegia la precisione ma puo avere ' +
+    'piu latenza; medium e small sono alternative piu rapide.';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -762,6 +807,26 @@ begin
     Result := SelectedPhysicalKeyName
   else
     Result := '';
+end;
+
+function GetComputeBackend(Param: String): String;
+begin
+  case ComputeCombo.ItemIndex of
+    1: Result := 'cuda';
+    2: Result := 'cpu';
+  else
+    Result := 'auto';
+  end;
+end;
+
+function GetWhisperModel(Param: String): String;
+begin
+  case ModelCombo.ItemIndex of
+    1: Result := 'medium';
+    2: Result := 'small';
+  else
+    Result := 'large-v3-turbo';
+  end;
 end;
 
 function GetAutostartSwitch(Param: String): String;
