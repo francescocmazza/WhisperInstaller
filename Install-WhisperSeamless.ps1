@@ -95,6 +95,11 @@ try {
         }
     }
 
+    if ((Test-Path $RuntimeRoot) -and -not (Test-Path $Python)) {
+        Write-Step "Removing incomplete private Python runtime"
+        Remove-Item $RuntimeRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     if (-not (Test-Path $Python)) {
         Write-Step "Installing private Python $PythonVersion runtime"
         $tmp = Join-Path $env:TEMP "python-$PythonVersion-amd64.exe"
