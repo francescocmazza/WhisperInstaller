@@ -38,8 +38,11 @@
     "oem_102_example": "Alt+<",
     "partial_python_runtime_recovery": true,
     "native_empty_physical_key_arg_fix": true,
-    "direct_python_bootstrap": true,
-    "python_bootstrap_log": true
+    "direct_python_bootstrap": false,
+    "python_bootstrap_log": true,
+    "venv_runtime": true,
+    "reuses_existing_python_312": true,
+    "legacy_runtime_layout_supported": true
   },
   "cuda_packages": {
     "nvidia-cuda-runtime-cu12": "12.9.79",
