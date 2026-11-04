@@ -1,8 +1,8 @@
 ; Whisper Seamless Inno Setup definition
 #define MyAppName "Whisper Seamless"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "1.3.1"
 #define MyAppPublisher "Whisper Seamless contributors"
-#define MyAppExeName "Whisper-Seamless-Setup-1.3.0.exe"
+#define MyAppExeName "Whisper-Seamless-Setup-1.3.1.exe"
 
 [Setup]
 AppId={{A31A6F39-5017-42DE-A35E-BD60BF1DCC72}
@@ -19,7 +19,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 OutputDir=Output
-OutputBaseFilename=Whisper-Seamless-Setup-1.3.0
+OutputBaseFilename=Whisper-Seamless-Setup-1.3.1
 UninstallDisplayName={#MyAppName}
 SetupLogging=yes
 
@@ -70,6 +70,7 @@ const
   VK_LWIN = $5B;
   VK_RWIN = $5C;
   VK_APPS = $5D;
+  VK_OEM_102 = $E2;
   VK_F1 = $70;
   VK_F24 = $87;
 
@@ -199,6 +200,18 @@ begin
     VirtualKey := $20;
     Result := True;
     Exit;
+  end;
+
+  { Captured OEM/special keys are stored as decimal Windows virtual-key codes. }
+  if Length(KeyName) > 1 then
+  begin
+    N := StrToIntDef(KeyName, 0);
+    if (N >= 1) and (N <= 255) then
+    begin
+      VirtualKey := N;
+      Result := True;
+      Exit;
+    end;
   end;
 
   if Length(KeyName) = 1 then
@@ -334,6 +347,8 @@ begin
       Result := 'Num Lock';
     $91:
       Result := 'Scroll Lock';
+    VK_OEM_102:
+      Result := '<';
   else
     if (Key >= VK_F1) and (Key <= VK_F24) then
       Result := 'F' + IntToStr(Key - VK_F1 + 1)
@@ -357,6 +372,13 @@ begin
     (Key = VK_ESCAPE);
 end;
 
+function BeautifyNativeHotkey(Value: String): String;
+begin
+  Result := Uppercase(NormalizeHotkey(Value));
+  { VK_OEM_102 is the extra <> key on many European/Italian layouts. }
+  StringChangeEx(Result, '+226', '+<', True);
+end;
+
 function BindingDescription(
   Mode: String; NativeHotkey: String; PhysicalVk: Integer;
   PhysicalName: String): String;
@@ -368,7 +390,7 @@ begin
     Result := PhysicalName + ' (tasto fisico)';
   end
   else if NativeHotkey <> '' then
-    Result := Uppercase(NativeHotkey)
+    Result := BeautifyNativeHotkey(NativeHotkey)
   else
     Result := 'nessuna';
 end;
@@ -407,7 +429,7 @@ begin
   if not ParseHotkey(Candidate, Modifiers, VirtualKey) then
   begin
     HotkeyStatusLabel.Caption :=
-      'Formato non valido. Usa F1-F24 oppure Ctrl/Alt/Shift/Win + A-Z, 0-9 o Space.';
+      'Formato non valido. Usa la cattura oppure F1-F24 / Ctrl-Alt-Shift-Win + tasto.';
     HotkeyStatusLabel.Font.Color := clRed;
     Exit;
   end;
@@ -417,7 +439,7 @@ begin
      (Candidate = NormalizeHotkey(CurrentWhisperHotkey)) then
   begin
     HotkeyStatusLabel.Caption :=
-      'Associazione attuale di Whisper: ' + Uppercase(Candidate) +
+      'Associazione attuale di Whisper: ' + BeautifyNativeHotkey(Candidate) +
       '. Verrà mantenuta salvo modifica.';
     HotkeyStatusLabel.Font.Color := clWindowText;
     Exit;
@@ -453,14 +475,103 @@ end;
 
 procedure CaptureButtonClick(Sender: TObject);
 begin
-  CaptureEdit.Text := 'Premi ora il tasto fisico da dedicare a Whisper...';
+  CaptureEdit.Text := 'Premi ora un tasto oppure una combinazione (es. Alt + <)...';
   WizardForm.ActiveControl := CaptureEdit;
+end;
+
+function ModifierKeyOnly(Key: Word): Boolean;
+begin
+  Result :=
+    (Key = VK_SHIFT) or
+    (Key = VK_CONTROL) or
+    (Key = VK_MENU) or
+    (Key = VK_LWIN) or
+    (Key = VK_RWIN);
+end;
+
+function KeyToNativeToken(Key: Word): String;
+begin
+  if (Key >= VK_F1) and (Key <= VK_F24) then
+    Result := 'f' + IntToStr(Key - VK_F1 + 1)
+  else if (Key >= $41) and (Key <= $5A) then
+    Result := Lowercase(Chr(Key))
+  else if (Key >= $30) and (Key <= $39) then
+    Result := Chr(Key)
+  else if Key = $20 then
+    Result := 'space'
+  else
+    Result := IntToStr(Key);
+end;
+
+function CapturedModifierPrefix(Shift: TShiftState): String;
+begin
+  Result := '';
+  if ssCtrl in Shift then
+    Result := Result + 'ctrl+';
+  if ssAlt in Shift then
+    Result := Result + 'alt+';
+  if ssShift in Shift then
+    Result := Result + 'shift+';
+end;
+
+function CapturedModifierDisplay(Shift: TShiftState): String;
+begin
+  Result := '';
+  if ssCtrl in Shift then
+    Result := Result + 'Ctrl + ';
+  if ssAlt in Shift then
+    Result := Result + 'Alt + ';
+  if ssShift in Shift then
+    Result := Result + 'Shift + ';
 end;
 
 procedure CaptureKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 var
-  Name: String;
+  Name, ModifierPrefix, ModifierDisplay, Candidate: String;
 begin
+  { Pressing Alt/Ctrl/Shift first is expected: wait for the actual key. }
+  if ModifierKeyOnly(Key) then
+  begin
+    CaptureEdit.Text := 'Modificatore rilevato: ora premi anche il tasto finale...';
+    Key := 0;
+    Exit;
+  end;
+
+  if Key = VK_ESCAPE then
+  begin
+    CaptureEdit.Text := 'Esc è riservato a stop/cancel di Whisper. Scegli un altro tasto.';
+    CaptureSuppressVk := Key;
+    Key := 0;
+    Exit;
+  end;
+
+  Name := PhysicalKeyDisplayName(Key);
+  ModifierPrefix := CapturedModifierPrefix(Shift);
+  ModifierDisplay := CapturedModifierDisplay(Shift);
+
+  if ModifierPrefix <> '' then
+  begin
+    { A chord such as Alt+< is a normal global hotkey, not a physical override. }
+    Candidate := ModifierPrefix + KeyToNativeToken(Key);
+    SelectedBindingMode := 'native';
+    SelectedWhisperHotkey := NormalizeHotkey(Candidate);
+    SelectedPhysicalKeyVk := 0;
+    SelectedPhysicalKeyName := '';
+    CaptureSuppressVk := Key;
+
+    UpdatingControls := True;
+    try
+      HotkeyCombo.Text := SelectedWhisperHotkey;
+      CaptureEdit.Text := ModifierDisplay + Name + '  [combinazione catturata]';
+    finally
+      UpdatingControls := False;
+    end;
+
+    UpdateHotkeyStatus(nil);
+    Key := 0;
+    Exit;
+  end;
+
   if IsForbiddenPhysicalKey(Key) then
   begin
     CaptureEdit.Text :=
@@ -470,7 +581,6 @@ begin
     Exit;
   end;
 
-  Name := PhysicalKeyDisplayName(Key);
   SelectedBindingMode := 'physical';
   SelectedPhysicalKeyVk := Key;
   SelectedPhysicalKeyName := Name;
@@ -478,7 +588,7 @@ begin
 
   UpdatingControls := True;
   try
-    CaptureEdit.Text := Name + '  [VK=' + IntToStr(Key) + ']';
+    CaptureEdit.Text := Name + '  [tasto fisico, VK=' + IntToStr(Key) + ']';
   finally
     UpdatingControls := False;
   end;
@@ -536,28 +646,28 @@ begin
   CaptureLabel.Left := 0;
   CaptureLabel.Top := CurrentHotkeyLabel.Top + CurrentHotkeyLabel.Height + 12;
   CaptureLabel.Width := ConfigPage.SurfaceWidth;
-  CaptureLabel.Caption := 'Metodo consigliato: clicca nel campo e premi fisicamente il tasto che vuoi dedicare a Whisper.';
+  CaptureLabel.Caption := 'Metodo consigliato: clicca nel campo e premi il tasto o la combinazione che vuoi usare (es. Alt + <).';
 
   CaptureEdit := TNewEdit.Create(ConfigPage);
   CaptureEdit.Parent := ConfigPage.Surface;
   CaptureEdit.Left := 0;
   CaptureEdit.Top := CaptureLabel.Top + CaptureLabel.Height + 6;
-  CaptureEdit.Width := ScaleX(315);
+  CaptureEdit.Width := ScaleX(292);
   CaptureEdit.ReadOnly := True;
   CaptureEdit.OnKeyDown := @CaptureKeyDown;
   CaptureEdit.OnKeyUp := @CaptureKeyUp;
   if SelectedBindingMode = 'physical' then
     CaptureEdit.Text := SelectedPhysicalKeyName + '  [VK=' + IntToStr(SelectedPhysicalKeyVk) + ']'
   else
-    CaptureEdit.Text := 'Clicca qui e premi un tasto';
+    CaptureEdit.Text := 'Clicca qui e premi un tasto o combinazione';
 
   CaptureButton := TNewButton.Create(ConfigPage);
   CaptureButton.Parent := ConfigPage.Surface;
   CaptureButton.Left := CaptureEdit.Left + CaptureEdit.Width + ScaleX(8);
   CaptureButton.Top := CaptureEdit.Top - ScaleY(1);
-  CaptureButton.Width := ScaleX(95);
+  CaptureButton.Width := ScaleX(118);
   CaptureButton.Height := CaptureEdit.Height + ScaleY(2);
-  CaptureButton.Caption := 'Cattura tasto';
+  CaptureButton.Caption := 'Cattura combinazione';
   CaptureButton.OnClick := @CaptureButtonClick;
 
   HotkeyCombo := TNewComboBox.Create(ConfigPage);
@@ -738,7 +848,7 @@ begin
   begin
     MsgBox(
       'La scorciatoia non è valida.' + #13#10 + #13#10 +
-      'Usa F1-F24 oppure una combinazione di Ctrl/Alt/Shift/Win con A-Z, 0-9 o Space.',
+      'Usa la cattura oppure F1-F24 / Ctrl-Alt-Shift-Win + tasto.',
       mbError, MB_OK);
     Result := False;
     Exit;
@@ -764,7 +874,7 @@ begin
   if SelectedHotkeyConflict then
   begin
     if MsgBox(
-      'La combinazione ' + Uppercase(Candidate) +
+      'La combinazione ' + BeautifyNativeHotkey(Candidate) +
       ' risulta già registrata da Windows o da un''altra applicazione.' + #13#10 + #13#10 +
       'Se continui, Whisper potrebbe non riuscire ad acquisirla. Vuoi usarla comunque?',
       mbConfirmation, MB_YESNO) <> IDYES then
