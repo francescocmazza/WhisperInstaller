@@ -1,8 +1,8 @@
 ; Whisper Seamless Inno Setup definition
 #define MyAppName "Whisper Seamless"
-#define MyAppVersion "1.3.1"
+#define MyAppVersion "1.3.2"
 #define MyAppPublisher "Whisper Seamless contributors"
-#define MyAppExeName "Whisper-Seamless-Setup-1.3.1.exe"
+#define MyAppExeName "Whisper-Seamless-Setup-1.3.2.exe"
 
 [Setup]
 AppId={{A31A6F39-5017-42DE-A35E-BD60BF1DCC72}
@@ -19,7 +19,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 OutputDir=Output
-OutputBaseFilename=Whisper-Seamless-Setup-1.3.1
+OutputBaseFilename=Whisper-Seamless-Setup-1.3.2
 UninstallDisplayName={#MyAppName}
 SetupLogging=yes
 
@@ -916,7 +916,7 @@ begin
   if SelectedBindingMode = 'physical' then
     Result := SelectedPhysicalKeyName
   else
-    Result := '';
+    Result := 'none';
 end;
 
 function GetComputeBackend(Param: String): String;
