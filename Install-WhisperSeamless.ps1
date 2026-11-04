@@ -51,7 +51,7 @@ $transcript = Join-Path $LogDir "install-$stamp.log"
 Start-Transcript -Path $transcript -Force | Out-Null
 
 try {
-    Write-Host "Whisper Seamless 1.3.2" -ForegroundColor Green
+    Write-Host "Whisper Seamless 1.3.3" -ForegroundColor Green
     Write-Host "Pinned upstream: Whisper Local 0.18.3 @ $UpstreamCommit"
     Write-Host "Install root: $InstallRoot"
     Write-Host "Recording hotkey: $RecordingHotkey"
@@ -114,23 +114,44 @@ try {
         }
 
         New-Item -ItemType Directory -Force -Path $RuntimeRoot | Out-Null
+        $pythonInstallLog = Join-Path $LogDir "python-runtime-$stamp.log"
 
         $pythonInstallerArgs = @(
-            "/quiet",
+            "/passive",
+            "/log", $pythonInstallLog,
             "InstallAllUsers=0",
-            "TargetDir=`"$RuntimeRoot`"",
+            "TargetDir=$RuntimeRoot",
+            "Include_exe=1",
+            "Include_lib=1",
+            "Include_dev=1",
             "Include_pip=1",
+            "Include_tcltk=1",
+            "Include_tools=1",
             "Include_launcher=0",
+            "InstallLauncherAllUsers=0",
             "Include_test=0",
             "Include_doc=0",
+            "AssociateFiles=0",
             "Shortcuts=0",
             "PrependPath=0"
         )
-        $p = Start-Process -FilePath $tmp -ArgumentList $pythonInstallerArgs -Wait -PassThru
+
+        Write-Host "Python installer log: $pythonInstallLog"
+        & $tmp @pythonInstallerArgs
+        $pythonExit = $LASTEXITCODE
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
-        if ($p.ExitCode -ne 0) {
-            throw "Python installer failed with exit code $($p.ExitCode)"
+
+        Write-Host "Python installer exit code: $pythonExit"
+        if (($pythonExit -ne 0) -or -not (Test-Path $Python) -or -not (Test-Path $PythonW)) {
+            if (Test-Path $pythonInstallLog) {
+                Write-Host "Last Python installer log lines:" -ForegroundColor Yellow
+                Get-Content $pythonInstallLog -Tail 50 | ForEach-Object { Write-Host $_ }
+            }
+            throw "Private Python runtime installation failed (exit=$pythonExit). Log: $pythonInstallLog"
         }
+
+        & $Python -c "import sys; print(sys.version)"
+        Assert-LastExit "Private Python runtime verification"
     }
 
     if (-not (Test-Path $Python)) {
