@@ -1,11 +1,13 @@
 $ErrorActionPreference = "Stop"
 
 $root = Join-Path $env:LOCALAPPDATA "WhisperSeamless"
-$python = Join-Path $root "runtime\Python312\python.exe"
+$venvPython = Join-Path $root "runtime\Python312\Scripts\python.exe"
+$legacyPython = Join-Path $root "runtime\Python312\python.exe"
+$python = if (Test-Path $venvPython) { $venvPython } else { $legacyPython }
 $site = Join-Path $root "runtime\Python312\Lib\site-packages"
 
 if (-not (Test-Path $python)) {
-    throw "Whisper Seamless runtime not found: $python"
+    throw "Whisper Seamless runtime not found in venv or legacy layout."
 }
 
 $env:PATH = (Join-Path $site "nvidia\cuda_runtime\bin") + ";" +
