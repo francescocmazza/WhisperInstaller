@@ -3,7 +3,23 @@
 Reproducible installer for long-form local Whisper dictation on Windows, based
 on **Whisper Local 0.18.3** with a seamless 30-second rollover patch.
 
-## v1.3.0 — NVIDIA CUDA or CPU INT8
+## v1.3.1 — capture hotkey combinations
+
+The configuration page can now capture a complete native hotkey chord. Click
+**Cattura combinazione**, hold the modifier(s), and press the final key.
+
+Example for an Italian/European keyboard:
+
+- hold **Alt**;
+- press the **< >** key;
+- the installer displays **Alt + <**;
+- internally it stores the Windows OEM key code (VK_OEM_102 / 226) in a format
+  supported by Whisper's global hotkey backend.
+
+Captured modifier chords are registered as normal global hotkeys. They do not
+use the physical-key suppression hook and do not permanently remap the keyboard.
+
+## NVIDIA CUDA or CPU INT8
 
 The installer now supports PCs without an NVIDIA GPU.
 
@@ -27,8 +43,8 @@ release.
 
 ## Press the physical key you want
 
-The installer can either use a normal global hotkey or capture a physical key
-directly. This includes the Windows **Menu / Context Menu key** next to the right
+The installer can capture either a normal modifier combination (for example
+**Alt + <**) or a single physical key directly. This includes the Windows **Menu / Context Menu key** next to the right
 Ctrl key (`VK_APPS`, virtual-key code `0x5D`).
 
 Physical-key mode uses a process-local Windows low-level keyboard hook. It does
@@ -55,7 +71,7 @@ uninstall.
 Use the latest release executable:
 
 ```text
-Whisper-Seamless-Setup-1.3.0.exe
+Whisper-Seamless-Setup-1.3.1.exe
 ```
 
 For a CPU-only machine, leave **Compute backend = Auto** or explicitly select
@@ -93,7 +109,7 @@ Physical Menu key:
 ## Intel Core Ultra / NPU note
 
 Intel Core Ultra processors can expose CPU, Intel integrated graphics and an NPU.
-This v1.3.0 profile intentionally keeps the stable Whisper Local
+This v1.3.1 profile intentionally keeps the stable Whisper Local
 `faster-whisper/CTranslate2` backend, so non-NVIDIA systems use CPU INT8.
 OpenVINO can target Intel CPU/GPU/NPU and is a separate optimization path rather
 than silently changing the transcription backend.

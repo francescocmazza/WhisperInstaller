@@ -10,7 +10,6 @@ import os
 import re
 import shutil
 
-from ruamel.yaml import YAML
 
 
 def merge_dict(base: dict, updates: dict) -> None:
@@ -39,18 +38,32 @@ def normalize_hotkey(value: str) -> str:
 
     function_key = re.fullmatch(r"f([1-9]|1[0-9]|2[0-4])", key)
     simple_key = re.fullmatch(r"[a-z0-9]", key) or key == "space"
-    if not function_key and not simple_key:
+
+    numeric_vk = None
+    if re.fullmatch(r"0x[0-9a-f]{1,2}", key):
+        numeric_vk = int(key, 16)
+    elif re.fullmatch(r"[0-9]{1,3}", key):
+        numeric_vk = int(key, 10)
+    if numeric_vk is not None and not (1 <= numeric_vk <= 255):
+        raise ValueError(f"Virtual-key code out of range: {key}")
+
+    if not function_key and not simple_key and numeric_vk is None:
         raise ValueError(
-            "Hotkey key must be F1-F24, A-Z, 0-9 or Space; "
-            "letters/digits/Space may be combined with Ctrl/Alt/Shift/Win"
+            "Hotkey key must be F1-F24, A-Z, 0-9, Space, or a Windows "
+            "virtual-key code (decimal/hex); modifiers are Ctrl/Alt/Shift/Win"
         )
-    if simple_key and not modifiers:
-        raise ValueError("Bare letters, digits and Space are not allowed; add a modifier")
+    if (simple_key or numeric_vk is not None) and not modifiers:
+        raise ValueError(
+            "Bare letters, digits, Space and raw virtual-key codes are not allowed; "
+            "add a modifier"
+        )
 
     return "+".join(parts)
 
 
 def main() -> int:
+    from ruamel.yaml import YAML
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--recording-hotkey", default="f24")
     parser.add_argument("--binding-mode", choices=("native", "physical"), default="native")
