@@ -56,6 +56,9 @@ def main() -> int:
     parser.add_argument("--binding-mode", choices=("native", "physical"), default="native")
     parser.add_argument("--physical-key-vk", type=int, default=0)
     parser.add_argument("--physical-key-name", default="")
+    parser.add_argument("--whisper-model", choices=("large-v3-turbo", "medium", "small"), default="large-v3-turbo")
+    parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
+    parser.add_argument("--compute-type", choices=("float16", "int8"), default="float16")
     args = parser.parse_args()
 
     if args.binding_mode == "physical":
@@ -89,9 +92,9 @@ def main() -> int:
     updates = {
         "whisper": {
             "backend": "faster_whisper",
-            "model": "large-v3-turbo",
-            "device": "cuda",
-            "compute_type": "float16",
+            "model": args.whisper_model,
+            "device": args.device,
+            "compute_type": args.compute_type,
             "language": "auto",
             "task": "transcribe",
         },
@@ -142,12 +145,12 @@ def main() -> int:
     print(f"Configured: {cfg}")
     if args.binding_mode == "physical":
         print(
-            "Profile: large-v3-turbo / CUDA float16 / physical key "
+            f"Profile: {args.whisper_model} / {args.device.upper()} {args.compute_type} / physical key "
             f"{args.physical_key_name or args.physical_key_vk} / MME / continuous 30 s"
         )
     else:
         print(
-            "Profile: large-v3-turbo / CUDA float16 / "
+            f"Profile: {args.whisper_model} / {args.device.upper()} {args.compute_type} / "
             f"{recording_hotkey.upper()} / MME / continuous 30 s"
         )
     return 0
