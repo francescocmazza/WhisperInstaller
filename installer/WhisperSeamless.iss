@@ -35,7 +35,7 @@ Source: "..\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesu
 [Run]
 Filename: "powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-WhisperSeamless.ps1"" -FromInno -RecordingHotkey ""{code:GetSelectedHotkey}"" -BindingMode ""{code:GetBindingMode}"" -PhysicalKeyVk {code:GetPhysicalKeyVk} -PhysicalKeyName ""{code:GetPhysicalKeyName}"" -ComputeBackend ""{code:GetComputeBackend}"" -WhisperModel ""{code:GetWhisperModel}"" {code:GetAutostartSwitch}"; \
-    StatusMsg: "Installing isolated Python, Whisper Local, CUDA runtime and model..."; \
+    StatusMsg: "Installing isolated Python, Whisper Local, selected inference runtime and model..."; \
     Flags: waituntilterminated
 
 [UninstallRun]
