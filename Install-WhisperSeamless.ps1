@@ -51,7 +51,7 @@ $transcript = Join-Path $LogDir "install-$stamp.log"
 Start-Transcript -Path $transcript -Force | Out-Null
 
 try {
-    Write-Host "Whisper Seamless 1.3.1" -ForegroundColor Green
+    Write-Host "Whisper Seamless 1.3.2" -ForegroundColor Green
     Write-Host "Pinned upstream: Whisper Local 0.18.3 @ $UpstreamCommit"
     Write-Host "Install root: $InstallRoot"
     Write-Host "Recording hotkey: $RecordingHotkey"
@@ -110,7 +110,7 @@ try {
 
         New-Item -ItemType Directory -Force -Path $RuntimeRoot | Out-Null
 
-        $args = @(
+        $pythonInstallerArgs = @(
             "/quiet",
             "InstallAllUsers=0",
             "TargetDir=`"$RuntimeRoot`"",
@@ -121,7 +121,7 @@ try {
             "Shortcuts=0",
             "PrependPath=0"
         )
-        $p = Start-Process -FilePath $tmp -ArgumentList $args -Wait -PassThru
+        $p = Start-Process -FilePath $tmp -ArgumentList $pythonInstallerArgs -Wait -PassThru
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
         if ($p.ExitCode -ne 0) {
             throw "Python installer failed with exit code $($p.ExitCode)"
