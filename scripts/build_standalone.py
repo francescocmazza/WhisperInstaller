@@ -3,8 +3,8 @@ import base64
 import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "Whisper-Seamless-Installer-1.3.2.ps1"
-CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.3.2.ps1.sha256.txt"
+OUTPUT = ROOT / "Whisper-Seamless-Installer-1.3.3.ps1"
+CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.3.3.ps1.sha256.txt"
 
 PAYLOAD = [
     "Install-WhisperSeamless.ps1",
