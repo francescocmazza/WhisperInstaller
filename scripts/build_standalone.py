@@ -3,8 +3,8 @@ import base64
 import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "Whisper-Seamless-Installer-1.2.1.ps1"
-CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.2.1.ps1.sha256.txt"
+OUTPUT = ROOT / "Whisper-Seamless-Installer-1.3.0.ps1"
+CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.3.0.ps1.sha256.txt"
 
 PAYLOAD = [
     "Install-WhisperSeamless.ps1",
@@ -27,7 +27,11 @@ param(
     [ValidateSet("native","physical")]
     [string]$BindingMode = "native",
     [int]$PhysicalKeyVk = 0,
-    [string]$PhysicalKeyName = ""
+    [string]$PhysicalKeyName = "",
+    [ValidateSet("auto","cuda","cpu")]
+    [string]$ComputeBackend = "auto",
+    [ValidateSet("large-v3-turbo","medium","small")]
+    [string]$WhisperModel = "large-v3-turbo"
 )
 
 Set-StrictMode -Version Latest
@@ -60,7 +64,9 @@ parts.append(r'''
         "-RecordingHotkey", $RecordingHotkey,
         "-BindingMode", $BindingMode,
         "-PhysicalKeyVk", [string]$PhysicalKeyVk,
-        "-PhysicalKeyName", $PhysicalKeyName
+        "-PhysicalKeyName", $PhysicalKeyName,
+        "-ComputeBackend", $ComputeBackend,
+        "-WhisperModel", $WhisperModel
     )
     if ($SkipModelDownload) { $childArgs += "-SkipModelDownload" }
     if ($NoAutostart) { $childArgs += "-NoAutostart" }
