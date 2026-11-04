@@ -50,7 +50,7 @@ function Test-Python312Candidate([string]$Candidate) {
         return $false
     }
     try {
-        $probe = (& $Candidate -c "import sys,struct; print(f'{sys.version_info.major}.{sys.version_info.minor}|{struct.calcsize('P')*8}')" 2>$null | Select-Object -First 1)
+        $probe = (& $Candidate -c "import sys,struct; print(str(sys.version_info.major)+'.'+str(sys.version_info.minor)+'|'+str(struct.calcsize('P')*8))" 2>$null | Select-Object -First 1)
         return (($LASTEXITCODE -eq 0) -and ($probe -eq "3.12|64"))
     } catch {
         return $false
