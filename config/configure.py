@@ -10,7 +10,6 @@ import os
 import re
 import shutil
 
-from ruamel.yaml import YAML
 
 
 def merge_dict(base: dict, updates: dict) -> None:
@@ -63,6 +62,8 @@ def normalize_hotkey(value: str) -> str:
 
 
 def main() -> int:
+    from ruamel.yaml import YAML
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--recording-hotkey", default="f24")
     parser.add_argument("--binding-mode", choices=("native", "physical"), default="native")
