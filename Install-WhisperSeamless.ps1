@@ -11,8 +11,8 @@ param(
     [string]$PhysicalKeyName = "",
     [ValidateSet("auto","cuda","cpu")]
     [string]$ComputeBackend = "auto",
-    [ValidateSet("large-v3-turbo","medium","small")]
-    [string]$WhisperModel = "large-v3-turbo"
+    [ValidateSet("auto","large-v3-turbo","medium","small")]
+    [string]$WhisperModel = "auto"
 )
 
 Set-StrictMode -Version Latest
@@ -343,7 +343,17 @@ try {
         Write-Host "Using CPU INT8 inference."
     }
 
-    Write-Host "Selected runtime: $selectedDevice / $selectedComputeType / $WhisperModel"
+    if ($WhisperModel -eq "auto") {
+        if ($selectedDevice -eq "cpu") {
+            $selectedModel = "medium"
+        } else {
+            $selectedModel = "large-v3-turbo"
+        }
+    } else {
+        $selectedModel = $WhisperModel
+    }
+
+    Write-Host "Selected runtime: $selectedDevice / $selectedComputeType / $selectedModel"
 
     Write-Step "Applying seamless continuous-dictation patch"
     & $Python (Join-Path $InstallRoot "patches\apply_seamless_patch.py")
@@ -354,7 +364,7 @@ try {
     $configureArgs = @(
         "--recording-hotkey", $RecordingHotkey,
         "--binding-mode", $BindingMode,
-        "--whisper-model", $WhisperModel,
+        "--whisper-model", $selectedModel,
         "--device", $selectedDevice,
         "--compute-type", $selectedComputeType
     )
@@ -375,7 +385,7 @@ try {
     $preflightArgs = @(
         "--device", $selectedDevice,
         "--compute-type", $selectedComputeType,
-        "--model", $WhisperModel
+        "--model", $selectedModel
     )
     if (-not $SkipModelDownload) {
         $preflightArgs += "--download-model"
@@ -418,7 +428,7 @@ try {
     }
     Write-Host "Esc: stop/cancel the live session"
     Write-Host "Start with Windows: $(-not $NoAutostart)"
-    Write-Host "Model: $WhisperModel / $selectedDevice $selectedComputeType"
+    Write-Host "Model: $selectedModel / $selectedDevice $selectedComputeType"
     Write-Host "Audio: MME / mono / seamless 30-second rollover"
     Write-Host "Log: $transcript"
 
