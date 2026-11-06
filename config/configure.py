@@ -124,7 +124,7 @@ def main() -> int:
         "audio": {
             "host": "MME",
             "channels": 1,
-            "continuous_mode": True,
+            "continuous_mode": False,
             "dtype": "float32",
             "max_duration": 30,
             "input_device": "default",
