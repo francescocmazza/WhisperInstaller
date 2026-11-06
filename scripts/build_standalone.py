@@ -3,14 +3,15 @@ import base64
 import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "Whisper-Seamless-Installer-1.3.3.ps1"
-CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.3.3.ps1.sha256.txt"
+OUTPUT = ROOT / "Whisper-Seamless-Installer-1.3.4.ps1"
+CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.3.4.ps1.sha256.txt"
 
 PAYLOAD = [
     "Install-WhisperSeamless.ps1",
     "Uninstall-WhisperSeamless.ps1",
     "VERSION.json",
     "patches/apply_seamless_patch.py",
+    "patches/apply_window_lifetime_patch.py",
     "config/configure.py",
     "launcher/Launch-Whisper.vbs",
     "scripts/preflight.py",
