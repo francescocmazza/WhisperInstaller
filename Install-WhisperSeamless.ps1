@@ -107,7 +107,7 @@ $transcript = Join-Path $LogDir "install-$stamp.log"
 Start-Transcript -Path $transcript -Force | Out-Null
 
 try {
-    Write-Host "Whisper Seamless 1.3.3" -ForegroundColor Green
+    Write-Host "Whisper Seamless 1.3.4" -ForegroundColor Green
     Write-Host "Pinned upstream: Whisper Local 0.18.3 @ $UpstreamCommit"
     Write-Host "Install root: $InstallRoot"
     Write-Host "Recording hotkey: $RecordingHotkey"
@@ -358,6 +358,10 @@ try {
     Write-Step "Applying seamless continuous-dictation patch"
     & $Python (Join-Path $InstallRoot "patches\apply_seamless_patch.py")
     Assert-LastExit "Seamless patch"
+
+    Write-Step "Fixing tray utility window lifetime"
+    & $Python (Join-Path $InstallRoot "patches\apply_window_lifetime_patch.py")
+    Assert-LastExit "Tray utility window lifetime patch"
 
     Write-Step "Merging the selected key binding / MME / continuous configuration"
     $configureScript = Join-Path $InstallRoot "config\configure.py"
