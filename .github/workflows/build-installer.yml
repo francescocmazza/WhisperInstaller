@@ -23,7 +23,7 @@ jobs:
         run: python scripts/check_secrets.py
 
       - name: Validate Python sources
-        run: python -m py_compile config/configure.py scripts/preflight.py scripts/check_secrets.py scripts/build_standalone.py scripts/launch_with_binding.py
+        run: python -m py_compile config/configure.py scripts/preflight.py scripts/check_secrets.py scripts/build_standalone.py scripts/launch_with_binding.py patches/apply_seamless_patch.py patches/apply_window_lifetime_patch.py
 
       - name: Validate captured OEM hotkey syntax
         run: python -c "from config.configure import normalize_hotkey; assert normalize_hotkey('alt+226') == 'alt+226'; assert normalize_hotkey('ctrl+alt+0xe2') == 'ctrl+alt+0xe2'; print('OEM hotkey parser OK')"
@@ -62,14 +62,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Whisper-Seamless-Installer-1.3.3.ps1 Whisper-Seamless-Installer-1.3.3.ps1.sha256.txt
+          git add Whisper-Seamless-Installer-1.3.4.ps1 Whisper-Seamless-Installer-1.3.4.ps1.sha256.txt
           Get-ChildItem "Whisper-Seamless-Installer-*.ps1*" |
-            Where-Object { $_.Name -notlike "Whisper-Seamless-Installer-1.3.3.ps1*" } |
+            Where-Object { $_.Name -notlike "Whisper-Seamless-Installer-1.3.4.ps1*" } |
             ForEach-Object { git rm -f $_.FullName }
           if (git diff --cached --quiet) {
             Write-Host "Standalone installer already up to date."
           } else {
-            git commit -m "Build definitive standalone installer v1.3.3"
+            git commit -m "Build definitive standalone installer v1.3.4"
             git push
           }
 
@@ -86,17 +86,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Whisper-Seamless-Setup
-          path: installer/Output/Whisper-Seamless-Setup-1.3.3.exe
+          path: installer/Output/Whisper-Seamless-Setup-1.3.4.exe
           if-no-files-found: error
 
-      - name: Publish definitive v1.3.3 release
+      - name: Publish definitive v1.3.4 release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v1.3.3"
-          $exe = "installer/Output/Whisper-Seamless-Setup-1.3.3.exe"
+          $tag = "v1.3.4"
+          $exe = "installer/Output/Whisper-Seamless-Setup-1.3.4.exe"
           $head = (git rev-parse HEAD).Trim()
 
           $headers = @{
@@ -117,5 +117,5 @@ jobs:
           if ($releaseExists) {
             gh release upload $tag $exe --clobber
           } else {
-            gh release create $tag $exe --target $head --title "Whisper Seamless v1.3.3" --notes "Uses an existing Python 3.12 x64 installation as the base for an isolated Whisper venv, falling back to installing Python only when needed. Supports both venv and legacy runtime layouts and verifies tkinter/pip on Windows CI."
+            gh release create $tag $exe --target $head --title "Whisper Seamless v1.3.4" --notes "Fixes Transcript History and Hotkey Cheat Sheet windows that flashed and closed immediately by keeping their Tk worker threads non-daemon. Retains venv runtime, true toggle hotkey, CPU performance tuning and all v1.3.3 fixes."
           }
