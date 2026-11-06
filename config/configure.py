@@ -108,6 +108,7 @@ def main() -> int:
             "model": args.whisper_model,
             "device": args.device,
             "compute_type": args.compute_type,
+            "beam_size": 1 if args.device == "cpu" else 5,
             "language": "auto",
             "task": "transcribe",
         },
@@ -124,7 +125,7 @@ def main() -> int:
         "audio": {
             "host": "MME",
             "channels": 1,
-            "continuous_mode": True,
+            "continuous_mode": False,
             "dtype": "float32",
             "max_duration": 30,
             "input_device": "default",

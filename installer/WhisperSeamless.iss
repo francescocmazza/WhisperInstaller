@@ -1,8 +1,8 @@
 ; Whisper Seamless Inno Setup definition
 #define MyAppName "Whisper Seamless"
-#define MyAppVersion "1.3.2"
+#define MyAppVersion "1.3.3"
 #define MyAppPublisher "Whisper Seamless contributors"
-#define MyAppExeName "Whisper-Seamless-Setup-1.3.2.exe"
+#define MyAppExeName "Whisper-Seamless-Setup-1.3.3.exe"
 
 [Setup]
 AppId={{A31A6F39-5017-42DE-A35E-BD60BF1DCC72}
@@ -19,7 +19,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 OutputDir=Output
-OutputBaseFilename=Whisper-Seamless-Setup-1.3.2
+OutputBaseFilename=Whisper-Seamless-Setup-1.3.3
 UninstallDisplayName={#MyAppName}
 SetupLogging=yes
 
@@ -755,6 +755,7 @@ begin
   ModelCombo.Top := ComputeCombo.Top + ComputeCombo.Height + 18;
   ModelCombo.Width := PerformancePage.SurfaceWidth;
   ModelCombo.Style := csDropDownList;
+  ModelCombo.Items.Add('Auto - Large-V3-Turbo su NVIDIA, Medium su CPU');
   ModelCombo.Items.Add('large-v3-turbo - massima precisione, piu pesante');
   ModelCombo.Items.Add('medium - equilibrio precisione/velocita');
   ModelCombo.Items.Add('small - piu rapido su CPU');
@@ -770,9 +771,9 @@ begin
   PerformanceInfo.WordWrap := True;
   PerformanceInfo.Caption :=
     'Modalita Auto: se una GPU NVIDIA CUDA funzionante e disponibile, usa CUDA/float16; ' +
-    'altrimenti usa CPU/INT8. Le GPU integrate Intel e la NPU Intel non vengono ancora usate ' +
-    'da questo backend CTranslate2. Su CPU, large-v3-turbo privilegia la precisione ma puo avere ' +
-    'piu latenza; medium e small sono alternative piu rapide.';
+    'altrimenti usa CPU/INT8. Il modello Auto usa Large-V3-Turbo su NVIDIA e Medium su CPU. ' +
+    'Le GPU integrate Intel e la NPU Intel non vengono ancora usate da questo backend CTranslate2. ' +
+    'Small resta disponibile quando serve la minima latenza.';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -932,10 +933,11 @@ end;
 function GetWhisperModel(Param: String): String;
 begin
   case ModelCombo.ItemIndex of
-    1: Result := 'medium';
-    2: Result := 'small';
+    1: Result := 'large-v3-turbo';
+    2: Result := 'medium';
+    3: Result := 'small';
   else
-    Result := 'large-v3-turbo';
+    Result := 'auto';
   end;
 end;
 

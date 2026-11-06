@@ -11,8 +11,8 @@ param(
     [string]$PhysicalKeyName = "",
     [ValidateSet("auto","cuda","cpu")]
     [string]$ComputeBackend = "auto",
-    [ValidateSet("large-v3-turbo","medium","small")]
-    [string]$WhisperModel = "large-v3-turbo"
+    [ValidateSet("auto","large-v3-turbo","medium","small")]
+    [string]$WhisperModel = "auto"
 )
 
 Set-StrictMode -Version Latest
@@ -25,8 +25,12 @@ $PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVer
 
 $InstallRoot = Join-Path $env:LOCALAPPDATA "WhisperSeamless"
 $RuntimeRoot = Join-Path $InstallRoot "runtime\Python312"
-$Python = Join-Path $RuntimeRoot "python.exe"
-$PythonW = Join-Path $RuntimeRoot "pythonw.exe"
+$VenvPython = Join-Path $RuntimeRoot "Scripts\python.exe"
+$VenvPythonW = Join-Path $RuntimeRoot "Scripts\pythonw.exe"
+$LegacyPython = Join-Path $RuntimeRoot "python.exe"
+$LegacyPythonW = Join-Path $RuntimeRoot "pythonw.exe"
+$Python = if (Test-Path $VenvPython) { $VenvPython } elseif (Test-Path $LegacyPython) { $LegacyPython } else { $VenvPython }
+$PythonW = if (Test-Path $VenvPythonW) { $VenvPythonW } elseif (Test-Path $LegacyPythonW) { $LegacyPythonW } else { $VenvPythonW }
 $LogDir = Join-Path $InstallRoot "install-logs"
 $SourceRoot = $PSScriptRoot
 
@@ -41,6 +45,58 @@ function Assert-LastExit([string]$What) {
     }
 }
 
+function Test-Python312Candidate([string]$Candidate) {
+    if ([string]::IsNullOrWhiteSpace($Candidate) -or -not (Test-Path $Candidate)) {
+        return $false
+    }
+    try {
+        $probe = (& $Candidate -c "import sys,struct; print(str(sys.version_info.major)+'.'+str(sys.version_info.minor)+'|'+str(struct.calcsize('P')*8))" 2>$null | Select-Object -First 1)
+        return (($LASTEXITCODE -eq 0) -and ($probe -eq "3.12|64"))
+    } catch {
+        return $false
+    }
+}
+
+function Find-Python312 {
+    $candidates = New-Object System.Collections.Generic.List[string]
+
+    foreach ($regPath in @(
+        "HKCU:\Software\Python\PythonCore\3.12\InstallPath",
+        "HKLM:\Software\Python\PythonCore\3.12\InstallPath",
+        "HKLM:\Software\WOW6432Node\Python\PythonCore\3.12\InstallPath"
+    )) {
+        try {
+            $installDir = (Get-Item -LiteralPath $regPath -ErrorAction Stop).GetValue("")
+            if ($installDir) {
+                $candidates.Add((Join-Path $installDir "python.exe"))
+            }
+        } catch {}
+    }
+
+    $candidates.Add((Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\python.exe"))
+
+    try {
+        $cmd = (Get-Command python.exe -ErrorAction Stop).Source
+        if ($cmd) { $candidates.Add($cmd) }
+    } catch {}
+
+    try {
+        $pyLauncher = (Get-Command py.exe -ErrorAction Stop).Source
+        if ($pyLauncher) {
+            $fromLauncher = (& $pyLauncher -3.12 -c "import sys; print(sys.executable)" 2>$null | Select-Object -First 1)
+            if ($fromLauncher) { $candidates.Add($fromLauncher.Trim()) }
+        }
+    } catch {}
+
+    foreach ($candidate in ($candidates | Select-Object -Unique)) {
+        if (Test-Python312Candidate $candidate) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
 if (-not [Environment]::Is64BitOperatingSystem) {
     throw "This installer supports 64-bit Windows only."
 }
@@ -51,7 +107,7 @@ $transcript = Join-Path $LogDir "install-$stamp.log"
 Start-Transcript -Path $transcript -Force | Out-Null
 
 try {
-    Write-Host "Whisper Seamless 1.3.2" -ForegroundColor Green
+    Write-Host "Whisper Seamless 1.3.3" -ForegroundColor Green
     Write-Host "Pinned upstream: Whisper Local 0.18.3 @ $UpstreamCommit"
     Write-Host "Install root: $InstallRoot"
     Write-Host "Recording hotkey: $RecordingHotkey"
@@ -95,46 +151,136 @@ try {
         }
     }
 
-    if ((Test-Path $RuntimeRoot) -and -not (Test-Path $Python)) {
+    if ((Test-Path $RuntimeRoot) -and
+        -not (Test-Path $VenvPython) -and
+        -not (Test-Path $LegacyPython)) {
         Write-Step "Removing incomplete private Python runtime"
         Remove-Item $RuntimeRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    if (-not (Test-Path $Python)) {
-        Write-Step "Installing private Python $PythonVersion runtime"
-        $tmp = Join-Path $env:TEMP "python-$PythonVersion-amd64.exe"
-        Invoke-WebRequest -Uri $PythonUrl -OutFile $tmp -UseBasicParsing
+    if (-not (Test-Path $VenvPython) -and -not (Test-Path $LegacyPython)) {
+        Write-Step "Locating Python 3.12 base runtime"
+        $BasePython = Find-Python312
 
-        $sig = Get-AuthenticodeSignature -FilePath $tmp
-        if ($sig.Status -ne "Valid") {
-            throw "Python installer Authenticode signature is not valid: $($sig.Status)"
-        }
-        if ($sig.SignerCertificate.Subject -notmatch "Python Software Foundation") {
-            throw "Unexpected Python installer signer: $($sig.SignerCertificate.Subject)"
+        if (-not $BasePython) {
+            Write-Step "Installing Python $PythonVersion base runtime"
+            $tmp = Join-Path $env:TEMP "python-$PythonVersion-amd64.exe"
+            $pythonInstallLog = Join-Path $LogDir "python-base-$stamp.log"
+
+            Invoke-WebRequest -Uri $PythonUrl -OutFile $tmp -UseBasicParsing
+
+            $sig = Get-AuthenticodeSignature -FilePath $tmp
+            if ($sig.Status -ne "Valid") {
+                throw "Python installer Authenticode signature is not valid: $($sig.Status)"
+            }
+            if ($sig.SignerCertificate.Subject -notmatch "Python Software Foundation") {
+                throw "Unexpected Python installer signer: $($sig.SignerCertificate.Subject)"
+            }
+
+            $pythonInstallerArgs = @(
+                "/quiet",
+                "/log", $pythonInstallLog,
+                "InstallAllUsers=0",
+                "Include_exe=1",
+                "Include_lib=1",
+                "Include_dev=1",
+                "Include_pip=1",
+                "Include_tcltk=1",
+                "Include_tools=1",
+                "Include_launcher=1",
+                "InstallLauncherAllUsers=0",
+                "Include_test=0",
+                "Include_doc=0",
+                "AssociateFiles=0",
+                "Shortcuts=0",
+                "PrependPath=0"
+            )
+
+            & $tmp @pythonInstallerArgs
+            $pythonExit = $LASTEXITCODE
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+
+            if ($pythonExit -ne 0) {
+                if (Test-Path $pythonInstallLog) {
+                    Get-Content $pythonInstallLog -Tail 50 | ForEach-Object { Write-Host $_ }
+                }
+                throw "Python base installation failed (exit=$pythonExit). Log: $pythonInstallLog"
+            }
+
+            $BasePython = Find-Python312
         }
 
-        New-Item -ItemType Directory -Force -Path $RuntimeRoot | Out-Null
-
-        $pythonInstallerArgs = @(
-            "/quiet",
-            "InstallAllUsers=0",
-            "TargetDir=`"$RuntimeRoot`"",
-            "Include_pip=1",
-            "Include_launcher=0",
-            "Include_test=0",
-            "Include_doc=0",
-            "Shortcuts=0",
-            "PrependPath=0"
-        )
-        $p = Start-Process -FilePath $tmp -ArgumentList $pythonInstallerArgs -Wait -PassThru
-        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
-        if ($p.ExitCode -ne 0) {
-            throw "Python installer failed with exit code $($p.ExitCode)"
+        if (-not $BasePython) {
+            throw "Python 3.12 x64 could not be located after installation."
         }
+
+        Write-Host "Using Python base: $BasePython"
+
+        & $BasePython -c "import tkinter; print('Base Tkinter OK')" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Step "Repairing Python 3.12 Tcl/Tk support"
+            $tmp = Join-Path $env:TEMP "python-$PythonVersion-amd64.exe"
+            $pythonRepairLog = Join-Path $LogDir "python-repair-$stamp.log"
+            $baseDir = Split-Path -Parent $BasePython
+
+            Invoke-WebRequest -Uri $PythonUrl -OutFile $tmp -UseBasicParsing
+            $sig = Get-AuthenticodeSignature -FilePath $tmp
+            if ($sig.Status -ne "Valid" -or
+                $sig.SignerCertificate.Subject -notmatch "Python Software Foundation") {
+                throw "Python repair installer signature validation failed."
+            }
+
+            $repairArgs = @(
+                "/quiet",
+                "/log", "`"$pythonRepairLog`"",
+                "InstallAllUsers=0",
+                "TargetDir=`"$baseDir`"",
+                "Include_exe=1",
+                "Include_lib=1",
+                "Include_dev=1",
+                "Include_pip=1",
+                "Include_tcltk=1",
+                "Include_tools=1",
+                "Include_launcher=1",
+                "InstallLauncherAllUsers=0",
+                "Include_test=0",
+                "Include_doc=0",
+                "AssociateFiles=0",
+                "Shortcuts=0",
+                "PrependPath=0"
+            )
+
+            $repair = Start-Process -FilePath $tmp -ArgumentList $repairArgs -Wait -PassThru
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+            if ($repair.ExitCode -ne 0) {
+                throw "Python Tcl/Tk repair failed with exit code $($repair.ExitCode). Log: $pythonRepairLog"
+            }
+
+            & $BasePython -c "import tkinter; print('Base Tkinter repaired')"
+            Assert-LastExit "Python Tcl/Tk repair verification"
+        }
+
+        Write-Step "Creating isolated Whisper Python environment"
+        Remove-Item $RuntimeRoot -Recurse -Force -ErrorAction SilentlyContinue
+        & $BasePython -m venv $RuntimeRoot
+        Assert-LastExit "Python venv creation"
+
+        $Python = $VenvPython
+        $PythonW = $VenvPythonW
+
+        if (-not (Test-Path $Python) -or -not (Test-Path $PythonW)) {
+            throw "Whisper Python venv is incomplete: $RuntimeRoot"
+        }
+
+        & $Python -c "import sys,tkinter; print(sys.version); print('Tkinter OK')"
+        Assert-LastExit "Whisper Python venv verification"
+    } else {
+        $Python = if (Test-Path $VenvPython) { $VenvPython } else { $LegacyPython }
+        $PythonW = if (Test-Path $VenvPythonW) { $VenvPythonW } else { $LegacyPythonW }
     }
 
-    if (-not (Test-Path $Python)) {
-        throw "Private Python runtime was not created: $Python"
+    if (-not (Test-Path $Python) -or -not (Test-Path $PythonW)) {
+        throw "Whisper Python runtime was not created: $RuntimeRoot"
     }
 
     if ($BindingMode -eq "physical") {
@@ -197,7 +343,17 @@ try {
         Write-Host "Using CPU INT8 inference."
     }
 
-    Write-Host "Selected runtime: $selectedDevice / $selectedComputeType / $WhisperModel"
+    if ($WhisperModel -eq "auto") {
+        if ($selectedDevice -eq "cpu") {
+            $selectedModel = "medium"
+        } else {
+            $selectedModel = "large-v3-turbo"
+        }
+    } else {
+        $selectedModel = $WhisperModel
+    }
+
+    Write-Host "Selected runtime: $selectedDevice / $selectedComputeType / $selectedModel"
 
     Write-Step "Applying seamless continuous-dictation patch"
     & $Python (Join-Path $InstallRoot "patches\apply_seamless_patch.py")
@@ -208,7 +364,7 @@ try {
     $configureArgs = @(
         "--recording-hotkey", $RecordingHotkey,
         "--binding-mode", $BindingMode,
-        "--whisper-model", $WhisperModel,
+        "--whisper-model", $selectedModel,
         "--device", $selectedDevice,
         "--compute-type", $selectedComputeType
     )
@@ -229,7 +385,7 @@ try {
     $preflightArgs = @(
         "--device", $selectedDevice,
         "--compute-type", $selectedComputeType,
-        "--model", $WhisperModel
+        "--model", $selectedModel
     )
     if (-not $SkipModelDownload) {
         $preflightArgs += "--download-model"
@@ -272,7 +428,7 @@ try {
     }
     Write-Host "Esc: stop/cancel the live session"
     Write-Host "Start with Windows: $(-not $NoAutostart)"
-    Write-Host "Model: $WhisperModel / $selectedDevice $selectedComputeType"
+    Write-Host "Model: $selectedModel / $selectedDevice $selectedComputeType"
     Write-Host "Audio: MME / mono / seamless 30-second rollover"
     Write-Host "Log: $transcript"
 

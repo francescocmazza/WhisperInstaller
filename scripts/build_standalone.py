@@ -3,8 +3,8 @@ import base64
 import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "Whisper-Seamless-Installer-1.3.2.ps1"
-CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.3.2.ps1.sha256.txt"
+OUTPUT = ROOT / "Whisper-Seamless-Installer-1.3.3.ps1"
+CHECKSUM = ROOT / "Whisper-Seamless-Installer-1.3.3.ps1.sha256.txt"
 
 PAYLOAD = [
     "Install-WhisperSeamless.ps1",
@@ -30,8 +30,8 @@ param(
     [string]$PhysicalKeyName = "",
     [ValidateSet("auto","cuda","cpu")]
     [string]$ComputeBackend = "auto",
-    [ValidateSet("large-v3-turbo","medium","small")]
-    [string]$WhisperModel = "large-v3-turbo"
+    [ValidateSet("auto","large-v3-turbo","medium","small")]
+    [string]$WhisperModel = "auto"
 )
 
 Set-StrictMode -Version Latest
