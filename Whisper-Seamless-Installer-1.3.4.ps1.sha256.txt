@@ -1,0 +1,1 @@
+bd0a9eb82e3457892e131c4542d11a321123ed6ef0f036f812b49cfc92e0fdf7  Whisper-Seamless-Installer-1.3.4.ps1
