@@ -33,6 +33,13 @@ Example for an Italian/European keyboard:
 Captured modifier chords are registered as normal global hotkeys. They do not
 use the physical-key suppression hook and do not permanently remap the keyboard.
 
+## True start/stop toggle
+
+In toggle mode, the configured recording hotkey now behaves as a true toggle:
+first press starts recording; second press stops, transcribes, and remains
+stopped. The seamless 30-second rollover still keeps long dictation gapless, so
+the separate continuous auto-restart mode is disabled in this profile.
+
 ## NVIDIA CUDA or CPU INT8
 
 The installer now supports PCs without an NVIDIA GPU.
@@ -46,8 +53,9 @@ The **Prestazioni Whisper** page offers:
 
 Model choices:
 
-- **large-v3-turbo** — highest-accuracy default used by this project;
-- **medium** — balance between accuracy and CPU latency;
+- **Auto** — Large-V3-Turbo on NVIDIA CUDA, Medium on CPU;
+- **large-v3-turbo** — highest accuracy, heavier on CPU;
+- **medium** — recommended CPU balance;
 - **small** — fastest option for CPU-only dictation.
 
 On Intel/AMD machines without NVIDIA, the current CTranslate2 backend uses the
@@ -91,8 +99,9 @@ Whisper-Seamless-Setup-1.3.3.exe
 For a CPU-only machine, leave **Compute backend = Auto** or explicitly select
 **CPU - INT8**.
 
-For maximum accuracy, start with `large-v3-turbo`. If the delay after speaking
-is too high, rerun the installer and select `medium` or `small`.
+Leave the model on **Auto** unless you have a specific preference. On CPU-only
+machines Auto selects `medium` to reduce post-recording latency; NVIDIA systems
+select `large-v3-turbo`.
 
 ### PowerShell examples
 
