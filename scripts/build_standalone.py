@@ -30,8 +30,8 @@ param(
     [string]$PhysicalKeyName = "",
     [ValidateSet("auto","cuda","cpu")]
     [string]$ComputeBackend = "auto",
-    [ValidateSet("large-v3-turbo","medium","small")]
-    [string]$WhisperModel = "large-v3-turbo"
+    [ValidateSet("auto","large-v3-turbo","medium","small")]
+    [string]$WhisperModel = "auto"
 )
 
 Set-StrictMode -Version Latest
