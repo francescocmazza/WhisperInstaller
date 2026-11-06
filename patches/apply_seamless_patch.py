@@ -49,15 +49,17 @@ def main() -> int:
     pkg = package_dir()
     state_path = pkg / "state_manager.py"
     audio_path = pkg / "audio_recorder.py"
+    hotkey_path = pkg / "hotkey_listener.py"
 
     state = state_path.read_text(encoding="utf-8")
     audio = audio_path.read_text(encoding="utf-8")
+    hotkey = hotkey_path.read_text(encoding="utf-8")
 
-    if MARKER in state and MARKER in audio:
+    if MARKER in state and MARKER in audio and "# WHISPER_SEAMLESS_TOGGLE_PATCH_V1" in hotkey:
         print("Seamless patch already applied.")
         return 0
 
-    for path in (state_path, audio_path):
+    for path in (state_path, audio_path, hotkey_path):
         backup = path.with_suffix(path.suffix + ".seamless-original")
         if not backup.exists():
             shutil.copy2(path, backup)
@@ -234,14 +236,36 @@ def main() -> int:
 """
     state = replace_once(state, old, new, "state priority")
 
+    old = """    def _standard_hotkey_pressed(self):
+        self.logger.info(f"Standard hotkey pressed: {self.recording_hotkey}")
+        self.keys_armed = False
+        self.state_manager.start_recording()
+"""
+    new = """    def _standard_hotkey_pressed(self):
+        self.logger.info(f"Standard hotkey pressed: {self.recording_hotkey}")
+        self.keys_armed = False
+        # WHISPER_SEAMLESS_TOGGLE_PATCH_V1
+        # In toggle mode the SAME hotkey starts and stops recording.
+        if (self.recording_mode == "toggle"
+                and self.state_manager.audio_recorder.get_recording_status()):
+            self.logger.info("Toggle hotkey: stopping recording")
+            self.state_manager._continuous_aborted = True
+            self.state_manager.stop_recording()
+        else:
+            self.state_manager.start_recording()
+"""
+    hotkey = replace_once(hotkey, old, new, "same-hotkey toggle stop")
+
     audio_path.write_text(audio, encoding="utf-8")
     state_path.write_text(state, encoding="utf-8")
+    hotkey_path.write_text(hotkey, encoding="utf-8")
 
     try:
         py_compile.compile(str(audio_path), doraise=True)
         py_compile.compile(str(state_path), doraise=True)
+        py_compile.compile(str(hotkey_path), doraise=True)
     except Exception:
-        for path in (state_path, audio_path):
+        for path in (state_path, audio_path, hotkey_path):
             backup = path.with_suffix(path.suffix + ".seamless-original")
             if backup.exists():
                 shutil.copy2(backup, path)
