@@ -116,6 +116,7 @@ def main() -> int:
         "hotkey": {
             "recording_hotkey": recording_hotkey,
             "recording_mode": "toggle",
+            "auto_send_key": "",
             "cancel_combination": "esc",
         },
         "vad": {
