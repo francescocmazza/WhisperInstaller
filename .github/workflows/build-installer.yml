@@ -62,14 +62,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Whisper-Seamless-Installer-1.3.4.ps1 Whisper-Seamless-Installer-1.3.4.ps1.sha256.txt
+          git add Whisper-Seamless-Installer-1.3.5.ps1 Whisper-Seamless-Installer-1.3.5.ps1.sha256.txt
           Get-ChildItem "Whisper-Seamless-Installer-*.ps1*" |
-            Where-Object { $_.Name -notlike "Whisper-Seamless-Installer-1.3.4.ps1*" } |
+            Where-Object { $_.Name -notlike "Whisper-Seamless-Installer-1.3.5.ps1*" } |
             ForEach-Object { git rm -f $_.FullName }
           if (git diff --cached --quiet) {
             Write-Host "Standalone installer already up to date."
           } else {
-            git commit -m "Build definitive standalone installer v1.3.4"
+            git commit -m "Build definitive standalone installer v1.3.5"
             git push
           }
 
@@ -86,17 +86,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Whisper-Seamless-Setup
-          path: installer/Output/Whisper-Seamless-Setup-1.3.4.exe
+          path: installer/Output/Whisper-Seamless-Setup-1.3.5.exe
           if-no-files-found: error
 
-      - name: Publish definitive v1.3.4 release
+      - name: Publish definitive v1.3.5 release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v1.3.4"
-          $exe = "installer/Output/Whisper-Seamless-Setup-1.3.4.exe"
+          $tag = "v1.3.5"
+          $exe = "installer/Output/Whisper-Seamless-Setup-1.3.5.exe"
           $head = (git rev-parse HEAD).Trim()
 
           $headers = @{
@@ -117,5 +117,5 @@ jobs:
           if ($releaseExists) {
             gh release upload $tag $exe --clobber
           } else {
-            gh release create $tag $exe --target $head --title "Whisper Seamless v1.3.4" --notes "Fixes Transcript History and Hotkey Cheat Sheet windows that flashed and closed immediately by keeping their Tk worker threads non-daemon. Retains venv runtime, true toggle hotkey, CPU performance tuning and all v1.3.3 fixes."
+            gh release create $tag $exe --target $head --title "Whisper Seamless v1.3.5" --notes "Disables Whisper Local's default Alt auto-send hotkey in the Seamless profile, so stopping dictation pastes text without sending ENTER. This prevents Alt+< from auto-submitting messages."
           }
