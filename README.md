@@ -1,13 +1,23 @@
 # Whisper Local Seamless Installer — Windows
 
-## v1.3.4 — tray utility windows stay open
+## v1.3.5 — no automatic ENTER after dictation
+
+Whisper Local upstream assigns `Alt` as an `auto_send_key`: stopping with that
+key pastes the transcription and sends ENTER. This conflicts with captured
+combinations such as `Alt+<`.
+
+The Whisper Seamless profile now disables `auto_send_key` by default. Stopping
+dictation pastes the text but leaves it in the current field for review and
+manual sending.
+
+## v1.3.5 — tray utility windows stay open
 
 Whisper Local 0.18.3 launches Transcript History and the Hotkey Cheat Sheet in
 short-lived helper processes. Upstream creates their Tk windows on daemon
 threads, then the helper process exits after 0.5 seconds; the windows therefore
 flash and disappear.
 
-v1.3.4 patches those two utility-window threads to non-daemon threads, so the
+v1.3.5 patches those two utility-window threads to non-daemon threads, so the
 helper process remains alive until the user closes the window.
 
 Reproducible installer for long-form local Whisper dictation on Windows, based
@@ -103,7 +113,7 @@ uninstall.
 Use the latest release executable:
 
 ```text
-Whisper-Seamless-Setup-1.3.4.exe
+Whisper-Seamless-Setup-1.3.5.exe
 ```
 
 For a CPU-only machine, leave **Compute backend = Auto** or explicitly select
